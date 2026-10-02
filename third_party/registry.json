@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "policy": "link-upstream",
+  "sources": [
+    {
+      "id": "mempalace",
+      "name": "MemPalace",
+      "kind": "semantic-memory",
+      "upstream_url": "https://github.com/MemPalace/mempalace",
+      "source_type": "git_commit",
+      "source_ref": "f8b9ed1507888cab47c7c7e1d90755f89e0353c4",
+      "license": "MIT",
+      "license_url": "https://github.com/MemPalace/mempalace/blob/f8b9ed1507888cab47c7c7e1d90755f89e0353c4/LICENSE",
+      "integration": "link",
+      "local_changes": false,
+      "checked_at": "2026-10-01",
+      "review_status": "approved",
+      "role": "optional semantic-memory provider",
+      "default_offer": false,
+      "activation": "runtime_adapter",
+      "attribution": "MemPalace remains an independent MIT-licensed project owned by its contributors.",
+      "notes": "Approved only as a link to an independently user-installed CLI. Public interface and complete one-commit delta review: docs/S4_SOURCE_REVIEW_EVIDENCE.md. Whole-tree scanner verdict remains FAIL; no source activation, findings acceptance, package installation, hook execution or safety approval is implied.",
+      "expected_scan": {
+        "verdict": "FAIL",
+        "tree_digest": "177c93eafd9685a318e77d3a0f54e4c8220e0b3cfee9ba31ab7ccd7db0172f98",
+        "rule_pack_version": "1:66da22d9ca00614fa7da2e8492b8e27d1c8306c8fb3163c8a8305419f1b464d6",
+        "reviewed_at": "2026-10-01"
+      }
+    },
+    {
+      "id": "superpowers",
+      "name": "Superpowers",
+      "kind": "skill-collection",
+      "upstream_url": "https://github.com/obra/superpowers",
+      "source_type": "git_commit",
+      "source_ref": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+      "license": "MIT",
+      "license_url": "https://github.com/obra/superpowers/blob/b36e0829c6d0140e93cfef2ca599b1b07d4a7797/LICENSE",
+      "integration": "installer",
+      "local_changes": false,
+      "checked_at": "2026-10-01",
+      "review_status": "approved",
+      "role": "optional external skill collection",
+      "default_offer": true,
+      "activation": "workspace_external",
+      "attribution": "Superpowers is an independent MIT-licensed project by Jesse Vincent and its contributors.",
+      "notes": "Fetched from the original upstream at the exact reviewed commit. No Superpowers skill tree is stored in the Aham Brahmasmi repository. Full-tree scan is REVIEW under the retained S3 rule pack; fetching is offered, but activation requires explicit acceptance of each current finding. Hooks remain inactive.",
+      "expected_scan": {
+        "verdict": "REVIEW",
+        "tree_digest": "2818b581e7b187d000c18d75c53ca392b1cd64c072bcff27edaf924110262789",
+        "rule_pack_version": "1:66da22d9ca00614fa7da2e8492b8e27d1c8306c8fb3163c8a8305419f1b464d6",
+        "reviewed_at": "2026-10-01"
+      }
+    }
+  ]
+}

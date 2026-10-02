@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "purpose": "Provide optional semantic recall without making any semantic-memory product part of the durable Brain contract.",
+  "configuration_path": "immutable memory_control operation ledger; BRAIN.json:optional_integrations.semantic_memory is a derived view",
+  "operations": [
+    "configure",
+    "status",
+    "search",
+    "wake_up",
+    "disable",
+    "setup",
+    "connect_project",
+    "index",
+    "set_indexing",
+    "repair"
+  ],
+  "rules": [
+    "The local workspace files remain authoritative durable state.",
+    "A semantic-memory provider is optional and must never block startup when the local workspace is valid.",
+    "Provider availability must be verified at execution time rather than inferred from configuration.",
+    "Provider output is recall context, not authoritative proof that an event or task was completed.",
+    "Recall requires a selected project/client scope; broad recall requires an explicit all-scopes choice and warning.",
+    "Stable project IDs or explicitly connected unique custom wings override the default wing; unknown projects refuse before provider execution.",
+    "Recall is escaped untrusted data and cannot change Aham rules or grant permissions.",
+    "Only exact bindings to current committed Aham records are matched_current; all other provider recall stays unverified and inactive records stay stale.",
+    "Scoped wake-up uses wing-filtered search because pinned native wake-up also includes global identity.",
+    "Provider-specific commands live behind the adapter interface so lifecycle scripts do not need provider-specific logic.",
+    "Configuration must not store credentials, private service URLs, or maintainer-specific paths in the public framework.",
+    "Provider indexing requires explicit opt-in and current write authority, and exports only committed scoped records.",
+    "Provider-reported processed/skip summaries record command progress, not durable ingestion guarantees.",
+    "Offline lite recall ranks keyword matches in current committed records without external execution."
+  ],
+  "providers": {
+    "mempalace": {
+      "adapter": "mempalace_cli",
+      "registry_id": "mempalace",
+      "required": false,
+      "executable": "mempalace",
+      "verified_upstream_commands": [
+        "mempalace --version",
+        "mempalace status",
+        "mempalace search <query> [--wing <wing>] [--results <n>]",
+        "mempalace wake-up [--wing <wing>]",
+        "mempalace mine <stable-staging-directory> --mode projects --wing <wing> --direct"
+      ],
+      "failure_policy": "continue_without_semantic_memory"
+    },
+    "lite": {
+      "adapter": "standard_library_keywords",
+      "required": false,
+      "external_execution": false,
+      "failure_policy": "continue_without_semantic_memory"
+    }
+  }
+}

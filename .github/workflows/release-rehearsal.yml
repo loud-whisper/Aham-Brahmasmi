@@ -1,0 +1,48 @@
+name: Private release rehearsal
+
+on:
+  workflow_dispatch:
+    inputs:
+      live_upstream:
+        description: Fetch pinned public upstream sources for an explicit integration gate
+        type: boolean
+        required: false
+        default: false
+
+permissions: {}
+
+jobs:
+  release-rehearsal:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository with history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install rehearsal isolation dependency
+        run: |
+          if ! command -v bwrap >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y bubblewrap
+          fi
+          bwrap --version
+
+      - name: Run foundation verification
+        run: python3 tests/verify_foundation.py
+
+      - name: Run unit tests
+        env:
+          AHAM_TEST_BWRAP_SUDO_HELPER: "1"
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
+
+      - name: Run isolated offline release rehearsal
+        run: python3 scripts/release_audit.py
+
+      - name: Run isolated release rehearsal with live approved upstreams
+        if: inputs.live_upstream
+        run: python3 scripts/release_audit.py --live-upstream

@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "id": "git",
+  "type": "durable_transport",
+  "purpose": "Version selected durable Brain state in a local Git repository without requiring any specific remote hosting provider.",
+  "durable_paths": [
+    "BRAIN.json",
+    "MEMORY.md",
+    "TODO.md",
+    "LESSONS.md",
+    "README.md",
+    "projects/",
+    "history/",
+    "state/checkpoints/",
+    "state/wrapups/",
+    "state/latest_checkpoint.json",
+    "state/installed_sources.json",
+    "state/schema.json",
+    "state/migrations/"
+  ],
+  "excluded_paths": [
+    "external/",
+    "state/quarantine/",
+    "state/replaced_sources/",
+    "state/scan_reports/",
+    "state/pending_wrap_up.json",
+    "state/pending_migration.json",
+    "state/pending_external_activation.json",
+    "state/recall_staging/",
+    "state/runtime_probes/",
+    "state/runtime_trust.json"
+  ],
+  "rules": [
+    "The local user-owned workspace remains authoritative even when Git is unavailable.",
+    "No remote host is required.",
+    "Initialization must not create, choose, or push to a remote automatically.",
+    "Initialization performed by the transport must use an explicit empty Git template so configured template hooks are not copied into the new repository.",
+    "Transport-created commits must disable Git hooks for that commit rather than executing repository or configured hooks implicitly.",
+    "Transport must refuse active Git filter attributes on durable snapshot inputs before inspecting or staging their contents.",
+    "Transport must refuse a detached HEAD after the repository has commits; snapshots belong on a named branch.",
+    "Transport-controlled Git invocations disable automatic CRLF conversion.",
+    "Transport Git subprocesses must have finite timeouts.",
+    "Snapshots may stage only paths explicitly listed as durable paths.",
+    "Refuse a snapshot when unrelated or excluded paths are already staged.",
+    "Third-party source trees and quarantine contents are reproducible inputs and are not part of the durable Brain snapshot.",
+    "A Git failure must not corrupt or delete local workspace state."
+  ]
+}

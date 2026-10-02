@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "unknown",
+  "display_name": "Unknown runtime safe fallback",
+  "kind": "unknown",
+  "capabilities_must_be_verified": true,
+  "requires_native_skill_loader": false,
+  "requires_semantic_memory": false,
+  "notes": "Use the neutral core, report only explicitly verified capabilities, and do not infer writes, skills, semantic memory, network, Git, or shell access from the runtime name."
+}

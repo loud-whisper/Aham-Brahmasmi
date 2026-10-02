@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "id": "portable_backup",
+  "type": "portable_export_restore",
+  "purpose": "Export authoritative user-owned Brain state into an inspectable provider-neutral bundle and restore it into a clean workspace location.",
+  "paths": [
+    {"path": "BRAIN.json", "class": "record"},
+    {"path": "MEMORY.md", "class": "artifact"},
+    {"path": "TODO.md", "class": "artifact"},
+    {"path": "LESSONS.md", "class": "artifact"},
+    {"path": "README.md", "class": "artifact"},
+    {"path": "projects/", "class": "artifact"},
+    {"path": "history/", "class": "artifact"},
+    {"path": "state/checkpoints/", "class": "record"},
+    {"path": "state/wrapups/", "class": "record"},
+    {"path": "state/operations/", "class": "record"},
+    {"path": "state/store.json", "class": "record"},
+    {"path": "state/projects.json", "class": "record"},
+    {"path": "state/project_heads/", "class": "record"},
+    {"path": "state/latest_checkpoint.json", "class": "record"},
+    {"path": "state/installed_sources.json", "class": "record"},
+    {"path": "state/schema.json", "class": "record"},
+    {"path": "state/migrations/", "class": "record"}
+  ],
+  "excluded": [
+    "state/session_authority.json",
+    "state/.writer.lock",
+    "state/pending_checkpoint.json",
+    "state/pending_wrap_up.json",
+    "state/pending_migration.json",
+    "state/pending_external_activation.json",
+    "external/",
+    "state/quarantine/",
+    "state/replaced_sources/",
+    "state/scan_reports/",
+    "state/skills_index.json",
+    "state/recall_staging/",
+    "state/runtime_probes/",
+    "state/runtime_trust.json",
+    ".git/"
+  ],
+  "rules": [
+    "The local user-owned workspace remains authoritative.",
+    "Export and restore must not depend on any semantic-memory provider, Git remote, or hosting service.",
+    "An export is a local portable copy, not evidence of replicated backup.",
+    "Pending Aham mutations, migrations, or external-source activations must be resolved before export.",
+    "Portable payload paths must not collide after Unicode normalization and case folding.",
+    "Session authority is restore-local and must be freshly issued rather than copied.",
+    "Restore must verify every manifest digest before creating the final destination.",
+    "Restore must not overwrite a non-empty destination."
+  ]
+}

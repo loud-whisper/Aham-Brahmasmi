@@ -1,0 +1,39 @@
+{
+  "format": "aham-brahmasmi-runtime-conformance",
+  "version": 1,
+  "tiers": [
+    {
+      "id": "context_packet",
+      "description": "Can consume a bounded project-scoped context packet without whole-Brain browsing.",
+      "demonstrated_requirements": [
+        "bounded_project_context_available"
+      ]
+    },
+    {
+      "id": "lifecycle_reader",
+      "description": "Can consume bounded project context and correctly inspect authoritative lifecycle state.",
+      "demonstrated_requirements": [
+        "bounded_project_context_available",
+        "independently_verified_lifecycle_read"
+      ]
+    },
+    {
+      "id": "lifecycle_writer",
+      "description": "Can complete an independently verified live lifecycle rehearsal under enforced runtime constraints.",
+      "demonstrated_requirements": [
+        "rich_live_runtime_rehearsal_pass",
+        "independent_verification",
+        "exact_harness_and_context_metadata"
+      ]
+    },
+    {
+      "id": "recovery_verified",
+      "description": "Can recover committed durable state in a fresh independently verified target session.",
+      "demonstrated_requirements": [
+        "lifecycle_writer",
+        "fresh_target_session_recovery_pass",
+        "independent_recovery_verification"
+      ]
+    }
+  ]
+}

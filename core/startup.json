@@ -1,0 +1,83 @@
+{
+  "version": 2,
+  "phases": [
+    {
+      "id": "load_core",
+      "required": true,
+      "sources": [
+        "core/brain.json",
+        "core/startup.json",
+        "core/state_routes.json",
+        "core/memory.json",
+        "core/lifecycle.json"
+      ]
+    },
+    {
+      "id": "detect_runtime",
+      "required": true,
+      "profiles": "runtime_profiles/",
+      "rule": "Use a named profile only to identify the runtime. Unknown names fall back to the neutral unknown profile. A profile never grants capabilities or write trust. Runtime writes require an explicit ledger-backed workspace-owner choice and a successful controller writer probe."
+    },
+    {
+      "id": "detect_capabilities",
+      "required": true,
+      "capabilities": [
+        "read_files",
+        "write_files",
+        "run_commands",
+        "git",
+        "network",
+        "skill_loader",
+        "semantic_memory"
+      ],
+      "rule": "Report only capabilities verified in the active runtime session. Do not infer capabilities from a runtime name."
+    },
+    {
+      "id": "select_mode",
+      "required": true,
+      "allowed": ["quick", "regular", "degraded_offline", "wrap_up"]
+    },
+    {
+      "id": "load_workspace",
+      "required": true,
+      "rule": "Load only the user-owned workspace that was explicitly selected or previously verified."
+    },
+    {
+      "id": "check_recovery_state",
+      "required": true,
+      "rule": "Detect pending wrap-up state and the newest durable checkpoint before reporting readiness."
+    },
+    {
+      "id": "discover_optional_integrations",
+      "required": false,
+      "rule": "Optional integrations may improve capability but may not block basic startup."
+    },
+    {
+      "id": "report_ready_state",
+      "required": true,
+      "executable": "scripts/startup.py",
+      "fields": [
+        "runtime",
+        "requested_runtime",
+        "mode",
+        "capabilities",
+        "capability_source",
+        "workspace_status",
+        "state_freshness",
+        "semantic_memory_status",
+        "latest_checkpoint",
+        "pending_wrap_up",
+        "external_sources",
+        "write_policy",
+        "writer_self_test",
+        "blockers"
+      ]
+    }
+  ],
+  "mode_behavior": {
+    "quick": "Use only already-loaded verified context. The executable requires an explicit confirmation that current context is loaded.",
+    "regular": "Load or verify current durable workspace state before task work begins.",
+    "degraded_offline": "Mark state stale, explain what cannot be verified, and avoid durable writes.",
+    "wrap_up": "Persist a replay-safe transaction, route durable changes according to core/state_routes.json, create a final checkpoint, and verify before completion."
+  }
+}

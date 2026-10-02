@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "purpose": "Translate the model-neutral Brain lifecycle into small runtime-native instruction bridges without making any runtime authoritative.",
+  "bridge_file": ".aham/runtime.md",
+  "local_configuration": ".aham/runtime.json",
+  "required_behaviors": [
+    "verify the selected private workspace before durable work",
+    "run the model-neutral startup report with only capabilities actually verified in the current session",
+    "recover an unfinished wrap-up before unrelated new work",
+    "use semantic recall only when configured and available",
+    "run relevant acceptance checks before recording a milestone as completed when executable or directly inspectable checks exist",
+    "create a durable checkpoint only after a meaningful completed milestone has been verified",
+    "route wrap-up through the replay-safe wrap-up command when the user asks to wrap up",
+    "never record intended work as completed work"
+  ],
+  "runtimes": {
+    "claude": {
+      "instruction_file": "CLAUDE.md",
+      "mode": "import",
+      "import_syntax": "@.aham/runtime.md"
+    },
+    "gemini": {
+      "instruction_file": "GEMINI.md",
+      "mode": "import",
+      "import_syntax": "@.aham/runtime.md"
+    },
+    "codex": {
+      "instruction_file": "AGENTS.md",
+      "mode": "directive",
+      "directive": "Read and follow .aham/runtime.md before substantial work in this repository."
+    },
+    "local": {
+      "instruction_file": null,
+      "mode": "manual",
+      "directive": "Read and follow .aham/runtime.md before substantial work in this repository."
+    },
+    "unknown": {
+      "instruction_file": null,
+      "mode": "manual",
+      "directive": "Read and follow .aham/runtime.md before substantial work in this repository."
+    }
+  },
+  "rules": [
+    "Never infer runtime capabilities from a runtime name.",
+    "Do not replace unrelated existing instruction content.",
+    "A bridge install may create or replace only the Aham Brahmasmi marked block it owns.",
+    "The portable runtime.md file must not contain the user's local framework, workspace, or project paths.",
+    "Local path configuration belongs in .aham/runtime.json and must be ignored by project Git.",
+    "Generated private paths must never be committed to the public framework repository.",
+    "Runtime-native hooks are optional future optimizations; the bridge contract must work without them."
+  ]
+}

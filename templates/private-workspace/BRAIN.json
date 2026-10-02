@@ -1,0 +1,30 @@
+{
+  "format": "aham-brahmasmi-workspace",
+  "version": 1,
+  "framework": "Aham Brahmasmi",
+  "workspace_owner": "user",
+  "workspace_id": null,
+  "state": {
+    "memory": "MEMORY.md",
+    "tasks": "TODO.md",
+    "lessons": "LESSONS.md",
+    "projects": "projects/",
+    "history": "history/",
+    "checkpoints": "state/checkpoints/",
+    "wrapups": "state/wrapups/",
+    "pending_wrap_up": "state/pending_wrap_up.json",
+    "external_sources": "external/",
+    "quarantine": "state/quarantine/",
+    "installed_sources": "state/installed_sources.json",
+    "scan_reports": "state/scan_reports/",
+    "replaced_sources": "state/replaced_sources/"
+  },
+  "durable_memory": {
+    "backend": "workspace_files",
+    "git_transport": "optional"
+  },
+  "optional_integrations": {
+    "semantic_memory": null,
+    "skills": []
+  }
+}

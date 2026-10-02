@@ -1,0 +1,103 @@
+name: Foundation checks
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions: {}
+
+concurrency:
+  group: foundation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-foundation:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install rehearsal isolation dependency
+        run: |
+          if ! command -v bwrap >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y bubblewrap
+          fi
+          bwrap --version
+
+      - name: Run foundation verification
+        run: python3 tests/verify_foundation.py
+
+      - name: Run unit tests
+        env:
+          AHAM_TEST_BWRAP_SUDO_HELPER: "1"
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
+
+  portability-matrix:
+    permissions:
+      contents: read
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+    name: portability-${{ matrix.os }}-py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: "3.10"
+          - os: ubuntu-latest
+            python: "3.14"
+          - os: macos-latest
+            python: "3.10"
+          - os: macos-latest
+            python: "3.14"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Run foundation verification
+        run: python tests/verify_foundation.py
+
+      - name: Run cross-platform core suite
+        run: python tests/run_portability_suite.py
+
+  windows-core:
+    permissions:
+      contents: read
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+    name: windows-native-core-py3.14
+    runs-on: windows-latest
+    timeout-minutes: 10
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - name: Run foundation verification
+        run: python tests/verify_foundation.py
+      - name: Verify independent-process writer concurrency and recovery
+        run: python -m unittest discover -s tests -p test_astra_m2.py -v
+      - name: Run native Windows core portability suite
+        run: python tests/run_portability_suite.py

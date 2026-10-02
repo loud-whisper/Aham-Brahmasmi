@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "name": "Aham Brahmasmi core",
+  "purpose": "Keep durable user-owned state usable across different models, tools and runtimes.",
+  "precedence": [
+    "platform_policy",
+    "core_contract",
+    "runtime_adapter",
+    "workspace_state",
+    "task_request"
+  ],
+  "required_capabilities": [
+    "read_context",
+    "validate_state"
+  ],
+  "optional_capabilities": [
+    "write_context",
+    "run_commands",
+    "git",
+    "network",
+    "skill_loader",
+    "semantic_memory"
+  ],
+  "contracts": {
+    "memory": "core/memory.json",
+    "lifecycle": "core/lifecycle.json",
+    "state_routes": "core/state_routes.json"
+  },
+  "rules": {
+    "do_not_fabricate_capabilities": true,
+    "private_workspace_separate_from_public_framework": true,
+    "optional_integrations_must_not_block_startup": true,
+    "unknown_runtime_uses_safe_fallback": true,
+    "validate_before_reporting_success": true,
+    "do_not_overwrite_unrelated_user_state": true
+  },
+  "modes": {
+    "quick": {
+      "purpose": "Use context that is already loaded while preserving all core rules.",
+      "refresh_durable_context": false,
+      "allow_validated_writes": true
+    },
+    "regular": {
+      "purpose": "Load or verify current durable context before work begins.",
+      "refresh_durable_context": true,
+      "allow_validated_writes": true
+    },
+    "degraded_offline": {
+      "purpose": "Continue cautiously with the last verified local state when fresh durable state cannot be reached.",
+      "refresh_durable_context": false,
+      "allow_validated_writes": false,
+      "state_freshness": "stale"
+    },
+    "wrap_up": {
+      "purpose": "Classify, validate and persist durable changes at session end using a replay-safe transaction.",
+      "contracts": ["core/state_routes.json", "core/lifecycle.json"]
+    }
+  },
+  "unknown_runtime": {
+    "behavior": "Load the neutral core, state which capabilities are unavailable, use only verified readable context, and avoid writes unless write and validation capabilities are established."
+  }
+}
