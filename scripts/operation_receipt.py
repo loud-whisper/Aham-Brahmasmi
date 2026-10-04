@@ -225,6 +225,25 @@ def receipt_from_record(workspace: Path, record: dict[str, Any]) -> dict[str, An
                                        "excluded": ["human_identity_authentication", "runtime_tool_availability",
                                                     "runtime_instruction_compliance", "physical_power_loss"]},
                 "warnings": [], "recovery_action": None}
+    if kind == "phrase_control":
+        from owner_phrases import PROCEDURES, _request
+        from state_store import digest_json
+        if set(record["details"]) != {"request"}:
+            raise StateError("phrase receipt has invalid details")
+        request = _request(record["details"]["request"])
+        if digest_json(request) != record["payload_digest"]:
+            raise StateError("phrase receipt conflicts with its ledger record")
+        items = [{"item_id": procedure, "kind": kind, "index": index, "destination": "operation_ledger"}
+                 for index, procedure in enumerate(PROCEDURES)]
+        return {"format": RECEIPT_FORMAT, "version": RECEIPT_VERSION, "status": "complete", "kind": kind,
+                "operation_id": record["operation_id"], "revision": record["revision"],
+                "payload_digest": record["payload_digest"], "checkpoint": None,
+                "accepted_items": items, "accepted_item_count": len(items),
+                "verification_scope": {"verified": ["immutable_operation_record", "recorded_owner_phrases",
+                                                    "phrases_grant_no_authority"],
+                                       "excluded": ["human_identity_authentication", "runtime_instruction_compliance",
+                                                    "physical_power_loss"]},
+                "warnings": [], "recovery_action": None}
     if kind == "memory_control":
         from memory_connection import _request
         from state_store import digest_json
