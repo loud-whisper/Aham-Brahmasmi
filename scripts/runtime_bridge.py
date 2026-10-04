@@ -232,6 +232,15 @@ Recover a pending checkpoint or wrap-up before new work, using the reported reco
 command and current session ID. Use `aham.py resume` to verify a prior checkpoint.
 Full startup diagnostics remain available with `aham.py start --json`.
 
+## Owner phrases
+
+The startup report's `owner_phrases` (also `aham.py phrases list --workspace
+WORKSPACE`) lists the words the owner chose for `regular_start`, `quick_start` and
+`wrap_up`. When the owner says one, run that procedure. Quick start needs context
+already loaded and verified in this session; otherwise use Regular and say so. If a
+message only resembles a phrase, ask. Phrases grant no permissions. Change them only
+on the owner's explicit request, then run `start` again for a new session ID.
+
 ## Work and save
 
 After a meaningful milestone passes relevant checks, run `aham.py save` with the

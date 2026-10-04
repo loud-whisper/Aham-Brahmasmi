@@ -13,6 +13,11 @@ version or tag exists yet.
 - Linux/macOS core acceptance and native Windows Python 3.14/NTFS acceptance.
 - `save --help` and `wrap-up --help` now print their options; GitHub Sponsors and
   Ko-fi funding links added.
+- Owner-chosen phrases for Regular start, Quick start and wrap up (`aham.py phrases`),
+  asked during assisted setup, stored as ledger records in the private workspace,
+  reported by startup and honored through the runtime bridge. Re-run `aham.py connect`
+  to refresh an existing project bridge. A Brain holding phrase records is refused
+  (without changes) by older framework copies; use this version or newer.
 - Contributor, threat-model and publication preparation; real newcomer walkthroughs,
   E1 live follow-ups and final human/privacy/provenance/publication gates remain open.
 

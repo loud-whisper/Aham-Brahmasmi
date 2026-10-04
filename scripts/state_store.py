@@ -66,7 +66,7 @@ STORE_FORMAT = "aham-brahmasmi-state-store"
 STORE_VERSION = 1
 OPERATION_FORMAT = "aham-brahmasmi-operation"
 OPERATION_VERSION = 1
-OPERATION_KINDS = {"wrap_up", "checkpoint", "record_lifecycle", "external_activation", "external_deactivation", "skill_review", "skills_control", "memory_control", "runtime_control"}
+OPERATION_KINDS = {"wrap_up", "checkpoint", "record_lifecycle", "external_activation", "external_deactivation", "skill_review", "skills_control", "memory_control", "runtime_control", "phrase_control"}
 DIGEST = re.compile(r"^[0-9a-f]{64}$")
 
 

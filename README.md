@@ -25,6 +25,26 @@ You do not need to learn Git or Python to follow the assisted setup. Your assist
 handles the commands and explains the choices. A chat website uses the user-run
 paste workflow in `docs/ASSISTANT_ACCESS.md`; it cannot perform local setup itself.
 
+## Everyday phrases
+
+During setup your assistant asks which words you want to say to start and finish
+work. The defaults are:
+
+| Say | What happens |
+| --- | --- |
+| "regular start" | The assistant loads and checks your saved Brain before you begin. |
+| "quick start" | It skips the reload, but only if your Brain is already loaded in the same session. Otherwise it does a regular start and tells you. |
+| "wrap up" | It sorts the session into facts, unfinished tasks, lessons, project notes and history, then saves a final recovery point. |
+
+You can choose your own words instead, for example "end of day" or "done for the
+day" for wrap up, up to five phrases for each routine. They are saved in your private
+Brain, so a different assistant uses the same words tomorrow. To change them later,
+ask your assistant, or see `aham.py phrases --help`. Phrases only name these
+routines; they never grant an assistant extra permissions.
+
+Closing the window does not wrap up by itself. Say your wrap-up phrase first, or the
+next session continues from the last saved recovery point.
+
 ## What it does
 
 - Keeps memory, unfinished tasks, lessons, project updates and checkpoints in your

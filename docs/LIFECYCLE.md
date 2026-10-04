@@ -22,6 +22,32 @@ python3 scripts/resume.py --workspace <workspace> --repo <project-repository>
 
 Recovery verifies the workspace identity. When Git state was recorded, it also verifies the branch and confirms that the checkpoint commit is still part of the current history.
 
+## Owner phrases
+
+The owner chooses the words that request each routine. Defaults are `regular start`,
+`quick start` and `wrap up`. The startup report's `owner_phrases` field and the
+read-only command below show the current choice:
+
+```text
+python3 aham.py phrases list --workspace <workspace>
+```
+
+The owner can replace a routine's phrases (up to five each, at most 40 characters,
+letters, digits, spaces, apostrophes and hyphens; one phrase cannot name two routines):
+
+```text
+python3 aham.py phrases set --workspace <workspace> --wrap-up "wrap up" --wrap-up "end of day" --confirm set-phrases
+```
+
+Each change is an immutable `phrase_control` record in the private workspace, so it
+survives export, restore and assistant switches. Phrases name existing routines only.
+They grant no permissions, and the controller never reads chat messages: the
+assistant recognizes the phrase and runs the routine. Quick start still requires
+context already loaded and verified in the current session.
+
+Like `trust-runtime`, `phrases set` issues its own owner session, which replaces the
+assistant's current session ID. Run `start` again after changing phrases.
+
 ## Saving a milestone
 
 After a meaningful completed milestone, save a checkpoint:
@@ -46,7 +72,7 @@ Only verified completed work belongs under `--completed`. Do not record an inten
 
 ## Wrapping up a session
 
-When the user says `wrap up`, the assistant should classify durable session information into:
+When the owner says one of their wrap-up phrases (by default `wrap up`), the assistant should classify durable session information into:
 
 - durable facts;
 - unfinished work;

@@ -16,6 +16,7 @@ from state_store import writer_lock
 from third_party import installed_source_status
 from skills_lifecycle import summary as skill_summary
 from semantic_memory import scope_payload
+import owner_phrases
 import runtime_trust
 
 
@@ -191,6 +192,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             if pending_checkpoint:
                 blockers.append("An unfinished checkpoint exists; start in wrap_up mode and recover it before new work.")
         runtime_is_trusted = normalized_runtime in runtime_trust.trusted_runtimes(workspace)
+        phrases = owner_phrases.owner_phrases(workspace)
         self_test = {"status": "not_run"}
         candidate = not blockers and core_allows_writes and runtime_reports_write_files and runtime_is_trusted
         if candidate:
@@ -246,6 +248,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "effective_runtime_write_ready": effective_runtime_write_ready,
         },
         "writer_self_test": self_test,
+        "owner_phrases": phrases,
         "session_authority": {
             "session_id": session["session_id"],
             "authority": session["authority"],

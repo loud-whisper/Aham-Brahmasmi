@@ -70,6 +70,7 @@
         "external_sources",
         "write_policy",
         "writer_self_test",
+        "owner_phrases",
         "blockers"
       ]
     }

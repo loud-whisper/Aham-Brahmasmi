@@ -21,6 +21,7 @@ The assistant should do the technical work for you and explain any choice before
 - **runtime**: the model or tool you are using right now, such as Claude, Gemini, Codex or a local model.
 - **checkpoint**: a saved recovery point so interrupted work can continue later.
 - **wrap up**: the end-of-session step that sorts useful information into the right places and saves a final recovery point.
+- **phrases**: the words you say to your assistant to start a session or wrap up, such as "regular start" or "end of day". You choose them during setup and can change them later.
 - **semantic memory**: optional search-based recall that can help find related past information. The Brain still works without it.
 - **Git**: an optional version-history tool. You do not need to understand or use it for the basic Brain.
 - **skill**: an optional set of instructions or tools for doing a particular kind of work.
@@ -86,7 +87,38 @@ PYTHON aham.py trust-runtime RUNTIME --workspace WORKSPACE --confirm RUNTIME
 ```
 
 Use the same normalized name for confirmation. Listed and unlisted tools follow
-the same trust rule. Start with only capabilities actually verified:
+the same trust rule.
+
+Before starting, ask the owner which words they want to use, in plain language, for example:
+
+> When you sit down to work or finish for the day, you can say a short phrase and I
+> will run the matching routine. The current phrases are "regular start", "quick
+> start" and "wrap up".
+>
+> - **Regular start** loads and checks your saved Brain before we begin.
+> - **Quick start** skips that reload, but only when your Brain is already loaded
+>   in this same session; otherwise I will do a Regular start and tell you.
+> - **Wrap up** sorts what we did into facts, unfinished tasks, lessons, project
+>   notes and history, then saves a final recovery point so the next assistant can
+>   continue.
+>
+> Would you like to keep these words or choose your own, such as "end of day" or
+> "done for the day"? You can give up to five phrases for each routine.
+
+Record only the owner's answer, replacing a routine's phrases only when they choose
+new ones:
+
+```text
+PYTHON aham.py phrases set --workspace WORKSPACE --wrap-up "wrap up" --wrap-up "end of day" --confirm set-phrases
+```
+
+`--regular-start` and `--quick-start` work the same way. Phrases are stored in the
+private Brain, so every assistant sees the same words. They name existing routines
+and grant no permissions. `aham.py phrases list --workspace WORKSPACE` shows them.
+Changing phrases replaces the current session ID, so run `start` again after any
+later change.
+
+Start with only capabilities actually verified:
 
 ```text
 PYTHON aham.py start --workspace WORKSPACE --runtime RUNTIME --mode regular --compact
@@ -130,14 +162,14 @@ hooks or permissions. Read the full listed `SKILL.md` before using a skill.
 ### 5. Save and report evidence
 
 Read `docs/LIFECYCLE.md`. After a meaningful milestone passes relevant checks,
-use `aham.py save`; when the user says wrap up, use `aham.py wrap-up`. Pass the
+use `aham.py save`; when the owner says one of their wrap-up phrases, use `aham.py wrap-up`. Pass the
 workspace and current session ID. Commands retain their existing options; run
 `--help` for details. Require actual `CHECKPOINT VERIFIED` or `WRAP UP VERIFIED`
 output before claiming completion. Preserve pending recovery after failure.
 Never record intended work as completed work.
 
 Finish with a short report: chosen workspace, verification result, runtime,
-verified capabilities, writer authority and probe result, optional connections,
+verified capabilities, writer authority and probe result, chosen phrases, optional connections,
 project bridge, pending recovery and next step. Report only observed facts.
 
 ## If something goes wrong
