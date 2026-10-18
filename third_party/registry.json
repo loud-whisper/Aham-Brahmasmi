@@ -51,6 +51,63 @@
         "rule_pack_version": "1:66da22d9ca00614fa7da2e8492b8e27d1c8306c8fb3163c8a8305419f1b464d6",
         "reviewed_at": "2026-10-01"
       }
+    },
+    {
+      "id": "claude-code-hooks",
+      "name": "Claude Code hooks",
+      "kind": "adapter-source",
+      "upstream_url": "https://github.com/anthropics/claude-code",
+      "source_type": "git_commit",
+      "source_ref": "dd6bee38458cc3e6dc5f2b16eca1f0f364619ad8",
+      "license": "Proprietary: Anthropic Commercial Terms of Service",
+      "license_url": "https://github.com/anthropics/claude-code/blob/dd6bee38458cc3e6dc5f2b16eca1f0f364619ad8/LICENSE.md",
+      "integration": "adapter",
+      "local_changes": false,
+      "checked_at": "2026-10-18",
+      "review_status": "approved",
+      "role": "optional native shell-command hook protocol",
+      "default_offer": false,
+      "activation": "runtime_adapter",
+      "attribution": "Claude Code is an independent Anthropic product. Its license and commercial terms are not replaced by Aham Brahmasmi's license.",
+      "notes": "Protocol-only integration for an independently installed runtime. No upstream code, documentation or binary is redistributed or installed. Official format and version limits: docs/COMMAND_GUARD_SOURCES.md. This approval covers the protocol adapter, not source-tree activation or a security endorsement."
+    },
+    {
+      "id": "codex-hooks",
+      "name": "Codex hooks",
+      "kind": "adapter-source",
+      "upstream_url": "https://github.com/openai/codex",
+      "source_type": "git_commit",
+      "source_ref": "8c076942cb70fba8e5c4732c23f1faabc4aed484",
+      "license": "Apache-2.0",
+      "license_url": "https://github.com/openai/codex/blob/8c076942cb70fba8e5c4732c23f1faabc4aed484/LICENSE",
+      "integration": "adapter",
+      "local_changes": false,
+      "checked_at": "2026-10-18",
+      "review_status": "approved",
+      "role": "optional native shell-command hook protocol",
+      "default_offer": false,
+      "activation": "runtime_adapter",
+      "attribution": "Codex is an independent Apache-2.0 project by OpenAI and its contributors.",
+      "notes": "Protocol-only integration; no upstream code or binary installed or redistributed. Official PreToolUse does not support ask and exposes session cwd; absolute mutation targets are required. See docs/COMMAND_GUARD_SOURCES.md. No source activation or whole-tree safety approval."
+    },
+    {
+      "id": "gemini-cli-hooks",
+      "name": "Gemini CLI hooks",
+      "kind": "adapter-source",
+      "upstream_url": "https://github.com/google-gemini/gemini-cli",
+      "source_type": "git_commit",
+      "source_ref": "ed96faedfd5571f055c44f2c9509d62321d1138d",
+      "license": "Apache-2.0",
+      "license_url": "https://github.com/google-gemini/gemini-cli/blob/ed96faedfd5571f055c44f2c9509d62321d1138d/LICENSE",
+      "integration": "adapter",
+      "local_changes": false,
+      "checked_at": "2026-10-18",
+      "review_status": "approved",
+      "role": "optional native shell-command hook protocol",
+      "default_offer": false,
+      "activation": "runtime_adapter",
+      "attribution": "Gemini CLI is an independent Apache-2.0 project by Google and its contributors.",
+      "notes": "Protocol-only integration; no upstream code or binary installed or redistributed. BeforeTool has allow/deny output, not ask. See docs/COMMAND_GUARD_SOURCES.md. No source activation or whole-tree safety approval."
     }
   ]
 }
