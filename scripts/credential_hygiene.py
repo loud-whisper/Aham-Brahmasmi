@@ -33,6 +33,14 @@ def secret_patterns() -> list[tuple[str, re.Pattern]]:
     return patterns
 
 
+
+def redact_secret_shapes(text: str) -> str:
+    """Keep other doctor diagnostics from echoing detected credential shapes."""
+    for _, pattern in secret_patterns():
+        text = pattern.sub("[redacted possible secret]", text)
+    return text
+
+
 def scan_managed_configuration(root: Path, relatives: tuple[str, ...] | list[str]) -> list[dict]:
     """Never recurse, repair files, follow managed links, or return secret text."""
     findings = []

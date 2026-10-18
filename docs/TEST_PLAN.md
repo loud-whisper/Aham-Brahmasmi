@@ -252,7 +252,7 @@ POSIX-only; lookup mocks and real child-environment coverage run cross-platform.
 
 Configuration cases cover known secret shapes and literal assignments, malformed
 bridge configuration, native settings, workspace integration fields, JSON escapes,
-redacted human/JSON diagnostics, read-only behavior and refusal to read symlinked,
+redacted human/JSON diagnostics (including token-shaped runtime/provider names), read-only behavior and refusal to read symlinked,
 oversized or nonregular configuration. This is bounded heuristic evidence, not a
 claim that all secrets or arbitrary client leaks are prevented. Recovery order and
 scan scope are in `docs/CREDENTIAL_HYGIENE.md`.

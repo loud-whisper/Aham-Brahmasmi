@@ -241,6 +241,26 @@ class ConfigurationHygieneTests(unittest.TestCase):
                 doctor.print_human(report)
             self.assertNotIn(synthetic_token(), output.getvalue())
 
+    def test_doctor_redacts_secret_shaped_names_from_other_findings(self):
+        import doctor
+        secret = synthetic_token("a")
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace, project = root / "workspace", root / "project"
+            project.mkdir()
+            for command in ([sys.executable, str(ROOT / "scripts/setup_workspace.py"), "--workspace", str(workspace)],
+                            [sys.executable, str(ROOT / "scripts/runtime_bridge.py"), "install", "--runtime", secret,
+                             "--workspace", str(workspace), "--project", str(project)]):
+                result = subprocess.run(command, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            report, _ = doctor.build_report(argparse.Namespace(workspace=str(workspace), project=str(project)))
+            self.assertNotIn(secret, json.dumps(report))
+            self.assertTrue(any(item["name"] == "Credential hygiene" for item in report["findings"]))
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                doctor.print_human(report)
+            self.assertNotIn(secret, output.getvalue())
+
     def test_doctor_does_not_echo_secret_shaped_provider_names(self):
         import doctor
         with tempfile.TemporaryDirectory() as temp:

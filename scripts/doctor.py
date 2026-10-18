@@ -17,7 +17,7 @@ from recovery_commands import recovery_command
 from session_authority import load_session
 from state_store import list_operation_records, validate_store
 from drift_checks import workspace_drift
-from credential_hygiene import PROJECT_CONFIG_PATHS, WORKSPACE_CONFIG_PATHS, scan_managed_configuration
+from credential_hygiene import PROJECT_CONFIG_PATHS, WORKSPACE_CONFIG_PATHS, redact_secret_shapes, scan_managed_configuration
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -44,12 +44,12 @@ def parse_args() -> argparse.Namespace:
 def item(level: str, name: str, status: str, detail: str, action: str | None = None) -> dict[str, Any]:
     value: dict[str, Any] = {
         "level": level,
-        "name": name,
+        "name": redact_secret_shapes(name),
         "status": status,
-        "detail": detail,
+        "detail": redact_secret_shapes(detail),
     }
     if action:
-        value["action"] = action
+        value["action"] = redact_secret_shapes(action)
     return value
 
 

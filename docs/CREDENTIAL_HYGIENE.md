@@ -67,7 +67,9 @@ PYTHON aham.py check --workspace WORKSPACE --project PROJECT --json
 
 The check reports `Credential hygiene` warnings with a relative file location and,
 where available, line number. Values and matching text are omitted in both JSON
-and human output. It changes no files, logins or credentials.
+and human output. The same redaction covers other doctor findings, such as runtime
+names, so a separate diagnostic cannot echo a detected secret shape. The check
+changes no files, logins or credentials.
 
 Selected workspace coverage is `BRAIN.json`. Selected project coverage is:
 
