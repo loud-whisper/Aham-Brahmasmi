@@ -108,4 +108,7 @@ The installer refuses to:
 - overwrite an existing unmanaged `.aham/runtime.md`;
 - edit malformed or duplicated Aham managed markers.
 
-Runtime-native hooks may be added later as verified optimizations, but they are not required by the core lifecycle.
+An explicit [optional command guard](COMMAND_GUARD.md) provides verified native
+shell hooks and a fallback wrapper. It is installed separately and is never
+required by the core lifecycle. Its configuration tests do not establish native
+runtime trust or live execution evidence.
