@@ -364,7 +364,7 @@ def load_status(project: Path) -> dict[str, Any]:
             raise RuntimeBridgeError("runtime bridge locations changed; reconnect the project before using its local paths")
         payload["configuration"] = config
         runtime = config["runtime"]
-        if not bridge_path.is_file() or bridge_path.read_bytes() != render_bridge(runtime).encode("utf-8"):
+        if not bridge_path.is_file() or bridge_path.read_text(encoding="utf-8") != render_bridge(runtime):
             payload["issues"].append(".aham/runtime.md is missing or differs from template")
         instruction_file = config.get("instruction_file")
         if isinstance(instruction_file, str):

@@ -232,6 +232,15 @@ class GeneratedTemplateTests(unittest.TestCase):
             status = runtime_bridge.load_status(self.project)
         self.assertFalse(status["installed"], status)
 
+    def test_bridge_check_accepts_platform_line_endings(self):
+        self.install_bridge("codex")
+        path = self.project / ".aham/runtime.md"
+        path.write_bytes(runtime_bridge.render_bridge("codex").replace("\n", "\r\n").encode("utf-8"))
+        before = self.snapshot()
+        result = self.check_bridge("codex")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(before, self.snapshot())
+
     def test_check_rejects_different_runtime_without_writing(self):
         self.install_bridge("codex")
         before = self.snapshot()

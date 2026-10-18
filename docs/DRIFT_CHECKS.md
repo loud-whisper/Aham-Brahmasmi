@@ -39,7 +39,8 @@ The counted source set is:
 - all top-level files listed in the workspace index, including the index itself;
 - the rendered runtime bridge and its native managed instruction block, if any.
 
-File sizes count actual bytes on disk. Generated text counts its UTF-8 encoding.
+File sizes count actual bytes on disk. Generated text counts its UTF-8 encoding
+with the installer's platform line endings.
 Nothing is silently truncated to obtain a pass. Project-specific records, optional
 skills, and semantic retrieval remain on-demand context and use their existing
 budgets. Runtime conversation history is outside this source inventory. Startup
@@ -89,3 +90,4 @@ managed comparison. Changing a template makes existing installations fail checks
 until reviewed and refreshed. Bridge installation refreshes its managed content;
 the guard installer retains its existing explicit-repair refusal for conflicting
 installed guard groups. Configuration checks do not prove runtime hook activation.
+Instruction comparisons accept platform line endings; other text changes fail.

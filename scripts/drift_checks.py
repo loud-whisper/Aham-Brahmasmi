@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import unicodedata
 
 from state_io import StateError, is_link_or_reparse, read_json, require_managed_path
@@ -70,11 +71,12 @@ def startup_sources(workspace, index, runtime):
         if path.is_file():
             sizes["workspace/" + relative] = path.stat().st_size
     selected = profiles[profile]
-    sizes["generated/.aham/runtime.md"] = len(render_bridge(runtime).encode("utf-8"))
+    sizes["generated/.aham/runtime.md"] = len(render_bridge(runtime).replace("\n", os.linesep).encode("utf-8"))
     native = runtime_native_block(runtime, selected)
     if native is not None:
         from runtime_bridge import update_managed_block
-        sizes["generated/native-instruction-block"] = len(update_managed_block("", native).encode("utf-8"))
+        sizes["generated/native-instruction-block"] = len(
+            update_managed_block("", native).replace("\n", os.linesep).encode("utf-8"))
     total = sum(sizes.values())
     return {"total_bytes": total, "budget_bytes": index["startup_budget_bytes"],
             "sources": sizes, "encoding": "UTF-8", "scope": "declared_startup_sources"}
