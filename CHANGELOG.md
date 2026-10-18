@@ -5,6 +5,10 @@
 First published as a public preview on 2026-10-02 with a fresh history. No
 version or tag exists yet.
 
+- Workspace inventory and startup source byte-budget drift checks, with
+  template-based runtime instructions and command hooks. Existing workspaces need
+  a reviewed `INDEX.json`; see `docs/DRIFT_CHECKS.md`.
+
 - Canonical writer/session authority, receipts, checkpoints and replay-safe recovery.
 - Portable local backup/restore and optional hardened Git history.
 - Bounded skill scanner, quarantine/review, universal reading bridge and source lifecycle.

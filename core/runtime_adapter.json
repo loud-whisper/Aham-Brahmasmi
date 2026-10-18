@@ -17,17 +17,17 @@
     "claude": {
       "instruction_file": "CLAUDE.md",
       "mode": "import",
-      "import_syntax": "@.aham/runtime.md"
+      "template": "claude.md"
     },
     "gemini": {
       "instruction_file": "GEMINI.md",
       "mode": "import",
-      "import_syntax": "@.aham/runtime.md"
+      "template": "gemini.md"
     },
     "codex": {
       "instruction_file": "AGENTS.md",
       "mode": "directive",
-      "directive": "Read and follow .aham/runtime.md before substantial work in this repository."
+      "template": "codex.md"
     },
     "local": {
       "instruction_file": null,

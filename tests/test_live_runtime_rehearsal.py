@@ -102,7 +102,7 @@ class LiveRuntimeRehearsalTests(unittest.TestCase):
         self.assertIn("CHECKPOINT SAVED", checkpoint.stdout)
         self.assertIn("CHECKPOINT VERIFIED", checkpoint.stdout)
 
-        bundle = workspace / "live-runtime-wrap-up.json"
+        bundle = workspace / "state/live-runtime-wrap-up.json"
         bundle.write_text(
             json.dumps(
                 {

@@ -10,6 +10,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+from drift_checks import workspace_drift
 
 REQUIRED_FILES = (
     "README.md",
@@ -207,6 +209,13 @@ def check_repository_boundary(errors: list[str]) -> None:
                 fail(f"Possible {label} found in {relative}", errors)
 
 
+def check_workspace_template(errors: list[str]) -> None:
+    for runtime in ("unknown", "local", "claude", "gemini", "codex"):
+        report = workspace_drift(ROOT / "templates/private-workspace", runtime)
+        for error in report["errors"]:
+            fail(f"Workspace template ({runtime}): {error}", errors)
+
+
 def main() -> int:
     errors: list[str] = []
 
@@ -216,6 +225,7 @@ def main() -> int:
     check_registry(errors)
     check_third_party_notices(errors)
     check_repository_boundary(errors)
+    check_workspace_template(errors)
 
     if errors:
         print("FOUNDATION CHECKS FAILED")

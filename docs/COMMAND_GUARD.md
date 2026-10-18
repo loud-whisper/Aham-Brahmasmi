@@ -44,6 +44,11 @@ native runtime, then verify one actual denied tool call. A settings-file check i
 not proof of runtime activation. Version and protocol details are in
 [Verified command-hook protocols](COMMAND_GUARD_SOURCES.md).
 
+Native groups are rendered from `templates/command-guard/hooks.json`. The check
+compares the installed managed group against the current template, including its
+rendered local command, and reports template or installed-content drift. Unrelated
+settings and hook groups remain outside that comparison.
+
 Native installation and wrapper execution currently support POSIX hosts. Claude
 requires 2.1.295 or later for the installed failure policy. A PowerShell call is
 refused explicitly rather than interpreted as POSIX syntax. No native Windows

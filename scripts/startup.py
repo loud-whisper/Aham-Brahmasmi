@@ -18,6 +18,7 @@ from skills_lifecycle import summary as skill_summary
 from semantic_memory import scope_payload
 import owner_phrases
 import runtime_trust
+from drift_checks import workspace_drift
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -149,6 +150,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     brain = require_workspace(workspace)
     normalized_runtime = runtime_trust.runtime_name(args.runtime)
     profile, profile_path, exact_profile = load_runtime_profile(args.runtime)
+    drift = workspace_drift(workspace, normalized_runtime)
+    if drift["errors"]:
+        raise StartupError("; ".join(drift["errors"]))
 
     allowed = allowed_capabilities()
     capabilities = set(args.capability)
@@ -222,6 +226,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "format": "aham-brahmasmi-ready-report",
         "version": 1,
         "ready": not blockers,
+        "startup_context": drift["startup_context"],
         "requested_runtime": args.runtime,
         "runtime": profile["id"],
         "harness": harness,

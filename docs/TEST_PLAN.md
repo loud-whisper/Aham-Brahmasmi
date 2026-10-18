@@ -18,6 +18,13 @@ Pass condition: a stranger can initialize the framework without any private main
 
 Automated coverage: `scripts/release_audit.py`, `tests/verify_foundation.py`, and the private release-rehearsal workflow.
 
+Workspace drift coverage: `tests/test_drift_checks.py` checks clean inventories,
+unindexed top-level instructions/state, missing project records, unlisted/missing
+folders, invalid indexes, source byte-budget boundaries and UTF-8 bytes, startup
+refusal before session issuance, and read-only template checks. Foundation checks
+also validate the shipped workspace index and budgets for all built-in profiles.
+See [Workspace drift checks](DRIFT_CHECKS.md) for the counted source set.
+
 ## 2. First-time nontechnical setup test
 
 Goal: prove the user does not need to understand the architecture first.

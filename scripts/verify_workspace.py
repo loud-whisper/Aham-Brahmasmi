@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 from schema_compat import SchemaCompatibilityError, compatibility_error, workspace_schema_version
+from drift_checks import workspace_drift
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,6 +38,7 @@ WORKSPACE_ID = re.compile(r"^[0-9a-f]{32}$")
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Verify a private Aham Brahmasmi workspace.")
     parser.add_argument("--workspace", required=True, help="Path to the private workspace")
+    parser.add_argument("--runtime", default="unknown", help="Runtime whose startup source budget is checked")
     return parser.parse_args()
 
 
@@ -51,6 +53,7 @@ def main() -> int:
     if not workspace.is_dir():
         errors.append("workspace directory does not exist")
     else:
+        errors.extend(workspace_drift(workspace, args.runtime)["errors"])
         for relative in REQUIRED_FILES:
             if not (workspace / relative).is_file():
                 errors.append(f"missing required file: {relative}")

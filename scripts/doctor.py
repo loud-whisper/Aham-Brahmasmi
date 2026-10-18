@@ -16,6 +16,7 @@ from onboarding import default_workspace, permission_issue, preflight, sync_root
 from recovery_commands import recovery_command
 from session_authority import load_session
 from state_store import list_operation_records, validate_store
+from drift_checks import workspace_drift
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -79,6 +80,8 @@ def check_workspace(path_value: str) -> tuple[list[dict[str, Any]], bool]:
     workspace = resolve_workspace(path_value)
     findings: list[dict[str, Any]] = []
     errors = workspace_errors(workspace)
+    if not errors:
+        errors.extend(workspace_drift(workspace)["errors"])
     if errors:
         findings.append(
             item(
