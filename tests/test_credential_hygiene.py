@@ -109,6 +109,52 @@ class CredentialProviderTests(unittest.TestCase):
             self.credentials.run_integration("github", ["client"], hostname="github.example.test")
         token.assert_called_once_with("github", hostname="github.example.test")
         self.assertEqual(run.call_args.kwargs["env"]["GH_ENTERPRISE_TOKEN"], synthetic_token())
+        self.assertEqual(run.call_args.kwargs["env"]["GH_HOST"], "github.example.test")
+
+
+    def test_real_consumer_receives_runtime_environment_without_persistence_or_output(self):
+        with tempfile.TemporaryDirectory() as temp:
+            receipt = Path(temp) / "receipt.json"
+            program = ("import json,os,sys; from pathlib import Path; "
+                       "Path(sys.argv[1]).write_text(json.dumps({'received': os.environ['SERVICE_TOKEN'] == sys.argv[2]})); "
+                       "sys.exit(0 if os.environ['SERVICE_TOKEN'] == sys.argv[2] else 9)")
+            # The synthetic expected value is test data, not a real credential.
+            # Production argv below receives only a check script and receipt path.
+            program = program.replace("sys.argv[2]", repr(synthetic_token()))
+            with patch("integration_credentials.repository_token", return_value=synthetic_token()):
+                code = self.credentials.run_integration("github", [sys.executable, "-c", program, str(receipt)], token_env="SERVICE_TOKEN")
+            self.assertEqual(code, 0)
+            self.assertEqual(json.loads(receipt.read_text()), {"received": True})
+            self.assertEqual(sorted(path.name for path in Path(temp).iterdir()), ["receipt.json"])
+
+    @unittest.skipIf(os.name == "nt", "executable synthetic Python CLI fixture requires POSIX")
+    def test_public_cli_with_fake_login_tool_in_fresh_process(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            fake = root / "gh"
+            fake.write_text("#!" + sys.executable + "\nimport os,sys\n"
+                            "assert sys.argv[1:] == ['auth', 'token', '--hostname', 'github.com']\n"
+                            "assert not any(k in os.environ for k in ['GH_TOKEN','GITHUB_TOKEN','GH_ENTERPRISE_TOKEN','GITHUB_ENTERPRISE_TOKEN'])\n"
+                            "print('gh' + 'p_' + 'A' * 36)\n", encoding="utf-8")
+            fake.chmod(0o700)
+            program = "import os; assert os.environ['GH_TOKEN'] == 'gh' + 'p_' + 'A' * 36; print('consumer authenticated')"
+            env = dict(os.environ, PATH=str(root) + os.pathsep + os.environ.get("PATH", ""), GH_TOKEN="retired-key")
+            result = subprocess.run([sys.executable, str(ROOT / "aham.py"), "integration", "run", "--platform", "github", "--",
+                                     sys.executable, "-c", program], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout.strip(), "consumer authenticated")
+            self.assertNotIn(synthetic_token(), result.stdout + result.stderr)
+            self.assertEqual(sorted(path.name for path in root.iterdir()), ["gh"])
+
+    def test_missing_consumer_and_login_errors_are_sanitized_at_cli_boundary(self):
+        secret = synthetic_token()
+        with patch("integration_credentials.repository_token", return_value=secret), \
+             patch("integration_credentials.subprocess.run", side_effect=OSError(secret)), \
+             contextlib.redirect_stderr(io.StringIO()) as errors:
+            code = self.credentials.main(["run", "--platform", "github", "--", "missing-client"])
+        self.assertEqual(code, 1)
+        self.assertNotIn(secret, errors.getvalue())
+
 
 
 class ConfigurationHygieneTests(unittest.TestCase):
@@ -129,6 +175,15 @@ class ConfigurationHygieneTests(unittest.TestCase):
                     self.assertTrue(findings)
                     self.assertEqual(findings[0]["line"], 2)
                     self.assertNotIn(value, json.dumps(findings))
+
+    def test_json_escaped_token_is_detected_without_echoing_value(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            text = json.dumps({"credential": synthetic_token()}).replace("g", r"\u0067")
+            (root / "config.json").write_text(text, encoding="utf-8")
+            findings = self.hygiene.scan_managed_configuration(root, ["config.json"])
+            self.assertTrue(findings)
+            self.assertNotIn(synthetic_token(), json.dumps(findings))
 
     def test_scanning_is_read_only_and_does_not_search_unrelated_files(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -185,6 +240,19 @@ class ConfigurationHygieneTests(unittest.TestCase):
             with contextlib.redirect_stdout(output):
                 doctor.print_human(report)
             self.assertNotIn(synthetic_token(), output.getvalue())
+
+    def test_doctor_does_not_echo_secret_shaped_provider_names(self):
+        import doctor
+        with tempfile.TemporaryDirectory() as temp:
+            workspace = Path(temp) / "workspace"
+            created = subprocess.run([sys.executable, str(ROOT / "scripts/setup_workspace.py"), "--workspace", str(workspace)], capture_output=True, text=True)
+            self.assertEqual(created.returncode, 0, created.stdout + created.stderr)
+            brain = workspace / "BRAIN.json"
+            value = json.loads(brain.read_text())
+            value["optional_integrations"]["semantic_memory"] = {"provider": synthetic_token()}
+            brain.write_text(json.dumps(value), encoding="utf-8")
+            report, _ = doctor.build_report(argparse.Namespace(workspace=str(workspace), project=None))
+            self.assertNotIn(synthetic_token(), json.dumps(report))
 
     def test_doctor_checks_native_integration_settings_and_workspace_config(self):
         import doctor

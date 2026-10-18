@@ -22,6 +22,7 @@ COMMANDS = {
     "revoke-runtime": ("runtime_trust.py", ["revoke"]), "runtimes": ("runtime_trust.py", ["list"]),
     "recover-access": ("runtime_trust.py", ["owner-recovery"]),
     "phrases": ("owner_phrases.py", []),
+    "integration": ("integration_credentials.py", []),
 }
 
 

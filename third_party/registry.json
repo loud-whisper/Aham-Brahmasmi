@@ -108,6 +108,25 @@
       "activation": "runtime_adapter",
       "attribution": "Gemini CLI is an independent Apache-2.0 project by Google and its contributors.",
       "notes": "Protocol-only integration; no upstream code or binary installed or redistributed. BeforeTool has allow/deny output, not ask. See docs/COMMAND_GUARD_SOURCES.md. No source activation or whole-tree safety approval."
+    },
+    {
+      "id": "github-cli-credentials",
+      "name": "GitHub CLI credential lookup",
+      "kind": "adapter-source",
+      "upstream_url": "https://github.com/cli/cli",
+      "source_type": "git_commit",
+      "source_ref": "fa92838bef95fe4a29c1587693885d5e9bdb6cf1",
+      "license": "MIT",
+      "license_url": "https://github.com/cli/cli/blob/fa92838bef95fe4a29c1587693885d5e9bdb6cf1/LICENSE",
+      "integration": "adapter",
+      "local_changes": false,
+      "checked_at": "2026-10-18",
+      "review_status": "approved",
+      "role": "optional runtime repository credential lookup",
+      "default_offer": false,
+      "activation": "runtime_adapter",
+      "attribution": "GitHub CLI is an independent MIT-licensed project by GitHub and its contributors.",
+      "notes": "Protocol-only adapter for an independently installed CLI. Reviewed auth token command, hostname flag, environment precedence and login-storage fallback: docs/CREDENTIAL_HYGIENE.md. No upstream source, documentation or binary is copied, installed or activated. This is not a whole-tree safety review."
     }
   ]
 }

@@ -223,3 +223,11 @@ Keep the failing command/output and preserve the workspace. Restore a verified
 portable backup into a separate empty folder using `aham.py restore --input BUNDLE
 --workspace DESTINATION`. Do not hand-edit operation records or delete pending
 metadata to manufacture readiness. Run `aham.py check` on the restored workspace.
+
+## Credential hygiene warning
+
+The check found possible secret material in selected managed configuration, or
+could not safely inspect a file. It reports the location without printing values.
+Review it privately. Follow [credential hygiene](CREDENTIAL_HYGIENE.md): switch
+**every** consumer to runtime platform-login lookup, test **each** one, then revoke
+the exposed key. The check never changes configuration or revokes credentials.
