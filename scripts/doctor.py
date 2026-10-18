@@ -17,6 +17,7 @@ from recovery_commands import recovery_command
 from session_authority import load_session
 from state_store import list_operation_records, validate_store
 from drift_checks import workspace_drift
+from credential_hygiene import PROJECT_CONFIG_PATHS, WORKSPACE_CONFIG_PATHS, redact_secret_shapes, scan_managed_configuration
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -43,12 +44,12 @@ def parse_args() -> argparse.Namespace:
 def item(level: str, name: str, status: str, detail: str, action: str | None = None) -> dict[str, Any]:
     value: dict[str, Any] = {
         "level": level,
-        "name": name,
+        "name": redact_secret_shapes(name),
         "status": status,
-        "detail": detail,
+        "detail": redact_secret_shapes(detail),
     }
     if action:
-        value["action"] = action
+        value["action"] = redact_secret_shapes(action)
     return value
 
 
@@ -221,7 +222,7 @@ def check_workspace(path_value: str) -> tuple[list[dict[str, Any]], bool]:
                 "optional",
                 "Semantic memory",
                 "unavailable",
-                f"A semantic-memory provider is configured but is not recognized here: {provider!r}.",
+                "A semantic-memory provider is configured but is not recognized here. Inspect its provider field privately in BRAIN.json.",
             )
         )
 
@@ -266,6 +267,23 @@ def check_project(path_value: str) -> dict[str, Any]:
     return item("required", "Project bridge", "ok", "Project bridge is installed for runtime profile: " + config["runtime"])
 
 
+def credential_findings(root: Path, paths: tuple[str, ...]) -> list[dict[str, Any]]:
+    findings = []
+    for warning in scan_managed_configuration(root, paths):
+        location = warning["path"]
+        if warning["line"] is not None:
+            location += ":" + str(warning["line"])
+        detail = ("Configuration could not be safely checked: " if warning["kind"] == "not_checked" else
+                  "Possible stored secret (value redacted): ") + location
+        action = ("Review this file's size, encoding, permissions and link status, then rerun the check. "
+                  if warning["kind"] == "not_checked" else
+                  "Switch every consumer to platform-login lookup, test each one, then revoke the exposed key. ")
+        findings.append(item("security", "Credential hygiene",
+                             "not_checked" if warning["kind"] == "not_checked" else "check_recommended", detail,
+                             action + "See docs/CREDENTIAL_HYGIENE.md. No files or credentials were changed by this check."))
+    return findings
+
+
 def build_report(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     findings: list[dict[str, Any]] = [check_framework()]
     required_ok = findings[0]["status"] == "ok"
@@ -276,6 +294,7 @@ def build_report(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     recovery_blocked = False
 
     if args.workspace:
+        findings.extend(credential_findings(resolve_workspace(args.workspace), WORKSPACE_CONFIG_PATHS))
         workspace_findings, workspace_ok = check_workspace(args.workspace)
         findings.extend(workspace_findings)
         required_ok = required_ok and workspace_ok
@@ -296,6 +315,8 @@ def build_report(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         )
 
     if args.project:
+        from runtime_bridge import resolve_project
+        findings.extend(credential_findings(resolve_project(args.project), PROJECT_CONFIG_PATHS))
         project_finding = check_project(args.project)
         findings.append(project_finding)
         required_ok = required_ok and project_finding["status"] == "ok"

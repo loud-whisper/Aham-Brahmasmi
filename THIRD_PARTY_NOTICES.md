@@ -44,3 +44,12 @@ The exact verified public formats and limits are in
 If a future version begins bundling, vendoring [copying into this project], modifying, or redistributing third-party material, this file and the release licensing review must be updated before that version can be released.
 
 Aham Brahmasmi's Apache License 2.0 does not replace the license of any independent third-party project.
+
+## GitHub CLI credential lookup
+
+- Original source: https://github.com/cli/cli
+- Reviewed reference: `fa92838bef95fe4a29c1587693885d5e9bdb6cf1`.
+- License: MIT, copyright 2019 GitHub Inc.
+- Aham includes only an independently written optional command adapter. The CLI
+  remains independently installed; no upstream source or binary is redistributed.
+- Interface and scope: [credential hygiene](docs/CREDENTIAL_HYGIENE.md).

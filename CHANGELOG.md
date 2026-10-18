@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Optional runtime GitHub credential lookup, redacted managed-configuration
+  warnings, and migration-before-revocation recovery guidance. See
+  `docs/CREDENTIAL_HYGIENE.md`.
+
 First published as a public preview on 2026-10-02 with a fresh history. No
 version or tag exists yet.
 

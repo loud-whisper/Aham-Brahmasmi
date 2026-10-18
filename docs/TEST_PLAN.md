@@ -239,3 +239,20 @@ Eight context scanner regressions passed the earlier checkpoint gate
 `36883836912`. No actual Superpowers finding was accepted; REVIEW blocks activation.
 These gates do not prove native Windows lifecycle, runtime instruction compliance
 or provider ingestion. S4 owns optional recall configuration/indexing evidence.
+
+## Integration credential hygiene
+
+Run `PYTHON -m unittest discover -s tests -p test_credential_hygiene.py`.
+Synthetic tests cover fresh GitHub login lookup, removal of old environment
+credentials, missing/failed/timed-out login refusal, sanitized errors, literal
+consumer arguments and exit codes, enterprise host selection, credential delivery
+to a real child process and a fresh-process public CLI path with an inert login
+fixture. No real login or credential is consulted. The executable CLI fixture is
+POSIX-only; lookup mocks and real child-environment coverage run cross-platform.
+
+Configuration cases cover known secret shapes and literal assignments, malformed
+bridge configuration, native settings, workspace integration fields, JSON escapes,
+redacted human/JSON diagnostics (including token-shaped runtime/provider names), read-only behavior and refusal to read symlinked,
+oversized or nonregular configuration. This is bounded heuristic evidence, not a
+claim that all secrets or arbitrary client leaks are prevented. Recovery order and
+scan scope are in `docs/CREDENTIAL_HYGIENE.md`.
