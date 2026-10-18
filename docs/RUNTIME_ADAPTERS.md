@@ -89,6 +89,17 @@ python3 scripts/runtime_bridge.py status --project <project-root>
 
 Use `--json` for machine-readable status. Status also verifies that the local runtime configuration is covered by the `.aham/.gitignore` rule.
 
+Bridge bodies and per-tool managed instructions are installed from
+`templates/runtime-bridge/`. To check their content without writing:
+
+```text
+python3 scripts/runtime_bridge.py install --runtime codex --workspace WORKSPACE --project PROJECT --check
+```
+
+The check fails for missing or changed bridge content or managed instructions.
+Unrelated owner instructions remain outside the comparison. See
+[Workspace drift checks](DRIFT_CHECKS.md) for inventory and startup byte limits.
+
 ## Remove
 
 ```text

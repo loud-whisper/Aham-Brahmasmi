@@ -46,7 +46,7 @@ def delegate(script, arguments, *, compact=False) -> int:
         return result.returncode
     keys = ("format", "version", "ready", "requested_runtime", "runtime", "mode", "capabilities",
             "workspace_status", "write_policy", "writer_self_test", "session_authority", "blockers",
-            "skills", "semantic_memory_status", "semantic_memory_scope", "owner_phrases")
+            "skills", "semantic_memory_status", "semantic_memory_scope", "owner_phrases", "startup_context")
     compact_report = {key: report[key] for key in keys if key in report}
     encoded = json.dumps(compact_report, sort_keys=True, ensure_ascii=True)
     if len(encoded.encode()) > 8 * 1024:

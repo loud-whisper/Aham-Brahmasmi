@@ -5,6 +5,7 @@
   "purpose": "Export authoritative user-owned Brain state into an inspectable provider-neutral bundle and restore it into a clean workspace location.",
   "paths": [
     {"path": "BRAIN.json", "class": "record"},
+    {"path": "INDEX.json", "class": "record"},
     {"path": "MEMORY.md", "class": "artifact"},
     {"path": "TODO.md", "class": "artifact"},
     {"path": "LESSONS.md", "class": "artifact"},

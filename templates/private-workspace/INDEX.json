@@ -1,0 +1,7 @@
+{
+  "format": "aham-brahmasmi-workspace-index",
+  "version": 1,
+  "files": ["BRAIN.json", "INDEX.json", "README.md", "MEMORY.md", "TODO.md", "LESSONS.md"],
+  "projects": [],
+  "startup_budget_bytes": 65536
+}

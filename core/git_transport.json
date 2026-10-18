@@ -5,6 +5,7 @@
   "purpose": "Version selected durable Brain state in a local Git repository without requiring any specific remote hosting provider.",
   "durable_paths": [
     "BRAIN.json",
+    "INDEX.json",
     "MEMORY.md",
     "TODO.md",
     "LESSONS.md",

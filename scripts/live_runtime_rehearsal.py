@@ -511,7 +511,7 @@ Replace the final `SESSION_ID` token with the actual issued value. The command m
 
 ## 5. Exercise wrap up
 
-Create a JSON wrap-up bundle at `{SANDBOX_WORKSPACE}/live-runtime-wrap-up.json` containing:
+Create a JSON wrap-up bundle at `{SANDBOX_WORKSPACE}/state/live-runtime-wrap-up.json` containing:
 
 - session ID: `live-runtime-{rehearsal_id}`
 - durable fact: `Live runtime {runtime} completed rehearsal {rehearsal_id}.`
@@ -526,7 +526,7 @@ Create a JSON wrap-up bundle at `{SANDBOX_WORKSPACE}/live-runtime-wrap-up.json` 
 Run:
 
 ```text
-python3 {SANDBOX_FRAMEWORK}/scripts/wrap_up.py --workspace {SANDBOX_WORKSPACE} --bundle {SANDBOX_WORKSPACE}/live-runtime-wrap-up.json --repo {SANDBOX_PROJECT} --session-id SESSION_ID
+python3 {SANDBOX_FRAMEWORK}/scripts/wrap_up.py --workspace {SANDBOX_WORKSPACE} --bundle {SANDBOX_WORKSPACE}/state/live-runtime-wrap-up.json --repo {SANDBOX_PROJECT} --session-id SESSION_ID
 ```
 
 Again replace `SESSION_ID` with the exact startup-issued value. The wrap-up command must exit successfully and its actual output must contain both `WRAP UP COMPLETE` and `WRAP UP VERIFIED`.

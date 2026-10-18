@@ -24,21 +24,27 @@ from runtime_bridge import (
 from state_io import StateError, atomic_write_json, atomic_write_text, require_managed_path
 
 TARGETS = {
-    "claude": (".claude/settings.local.json", "PreToolUse", "^(Bash|PowerShell)$"),
-    "codex": (".codex/hooks.json", "PreToolUse", "^Bash$"),
-    "gemini": (".gemini/settings.json", "BeforeTool", "^run_shell_command$"),
+    "claude": (".claude/settings.local.json", "PreToolUse"),
+    "codex": (".codex/hooks.json", "PreToolUse"),
+    "gemini": (".gemini/settings.json", "BeforeTool"),
 }
 MARKER = "aham-brahmasmi-command-guard"
+TEMPLATE_DIR = ROOT / "templates" / "command-guard"
 
 
 def hook_group(project, runtime):
-    relative, event, matcher = TARGETS[runtime]
+    spec = json.loads((TEMPLATE_DIR / "hooks.json").read_text(encoding="utf-8"))[runtime]
+    relative, event = TARGETS[runtime]
+    if spec["path"] != relative or spec["event"] != event:
+        raise ValueError("hook template path or event does not match the supported runtime")
     command = shlex.join([sys.executable, str(ROOT / "scripts" / "command_guard.py"), "hook",
                           "--runtime", runtime, "--project", str(project)]) + " || exit 2"
-    handler = {"type": "command", "command": command, "timeout": 10000 if runtime == "gemini" else 10}
-    if runtime == "claude":
-        handler["onFailure"] = "block"
-    return relative, event, {"matcher": matcher, "hooks": [handler]}
+    group = spec["group"]
+    if (not isinstance(group, dict) or not isinstance(group.get("hooks"), list)
+            or len(group["hooks"]) != 1 or group["hooks"][0].get("command") != "$command"):
+        raise ValueError("hook template must contain one command placeholder")
+    group["hooks"][0]["command"] = command
+    return relative, event, group
 
 
 def load_settings(path):
