@@ -1,0 +1,10 @@
+{
+  "commitment": "35fa0f318f511dad6b02995bc82ce7cf537396cb9df2904843689b3621d7c56a",
+  "created_at": "2026-10-25T14:15:27Z",
+  "format": "aham-brahmasmi-provenance-commitment",
+  "hash_algorithm": "SHA-256",
+  "note": "The secret is intentionally not included. Keep it offline until proof is needed.",
+  "project": "Aham Brahmasmi",
+  "tree_sha": "f2f219523ca969067a2d8c4463ff5f5750e38604",
+  "version": 1
+}
