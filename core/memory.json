@@ -1,0 +1,48 @@
+{
+  "version": 3,
+  "purpose": "Keep durable user-owned state independent of any single model, hosting provider or semantic-memory service.",
+  "default_backend": {
+    "id": "workspace_files",
+    "type": "durable",
+    "required": true,
+    "paths": {
+      "memory": "MEMORY.md",
+      "tasks": "TODO.md",
+      "lessons": "LESSONS.md",
+      "projects": "projects/",
+      "history": "history/",
+      "checkpoints": "state/checkpoints/"
+    }
+  },
+  "optional_backends": [
+    {
+      "id": "git",
+      "type": "durable_transport",
+      "required": false,
+      "contract": "core/git_transport.json",
+      "purpose": "Version selected durable workspace files locally without requiring a specific remote hosting provider.",
+      "failure_policy": "continue_with_local_verified_files",
+      "remote_required": false,
+      "automatic_push": false
+    },
+    {
+      "id": "mempalace",
+      "type": "semantic_memory",
+      "required": false,
+      "registry_id": "mempalace",
+      "contract": "core/semantic_memory.json",
+      "adapter": "mempalace_cli",
+      "purpose": "Improve semantic recall and wake-up context when available.",
+      "failure_policy": "continue_without_semantic_memory"
+    }
+  ],
+  "rules": [
+    "The user-owned workspace files are the minimum durable state required for core operation.",
+    "Semantic memory may index or retrieve state but must not become the only copy of durable state.",
+    "Semantic-memory provider commands must stay behind the replaceable adapter interface.",
+    "Git may version selected durable state but the core must not depend on GitHub or any other specific remote host.",
+    "Git transport must not automatically create, choose, or push to a remote host.",
+    "Optional backend failure must be reported and must not block startup when local workspace state is valid.",
+    "A backend may be replaced without changing the state-routing destinations defined by the core."
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "registry": "third_party/registry.json",
+  "states": [
+    "registered",
+    "quarantined",
+    "scanned",
+    "active"
+  ],
+  "rules": {
+    "approved_registry_entry_required": true,
+    "exact_source_ref_required": true,
+    "quarantine_before_activation": true,
+    "scanner_must_pass_before_activation": true,
+    "raw_review_requires_explicit_human_finding_acceptance": true,
+    "fail_and_incomplete_scans_cannot_be_waived": true,
+    "scanner_is_replaceable": true,
+    "existing_active_source_must_survive_failed_update": true,
+    "record_provenance_after_activation": true,
+    "runtime_activation_is_separate_from_source_fetch": true
+  },
+  "scanner_contract": {
+    "input": "quarantined source directory",
+    "output_fields": [
+      "scanner",
+      "version",
+      "verdict",
+      "findings",
+      "scanned_at",
+      "tree_digest",
+      "rule_pack_version"
+    ],
+    "verdicts": ["PASS", "REVIEW", "FAIL"],
+    "activation_allowed_only_for": ["PASS", "PASS-WITH-WAIVER"],
+    "activation_verdict_field": "effective_verdict"
+  },
+  "workspace_paths": {
+    "active_sources": "external/",
+    "quarantine": "state/quarantine/",
+    "installed_manifest": "state/installed_sources.json",
+    "scan_reports": "state/scan_reports/",
+    "replaced_sources": "state/replaced_sources/",
+    "skill_index": "state/skills_index.json"
+  }
+}

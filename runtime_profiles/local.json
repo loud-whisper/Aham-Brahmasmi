@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "local",
+  "display_name": "Local or open-model runtime",
+  "kind": "local_open",
+  "capabilities_must_be_verified": true,
+  "requires_native_skill_loader": false,
+  "requires_semantic_memory": false,
+  "notes": "This profile covers local or open-model runtimes without assuming a specific server, model, API, tool protocol, or skill loader."
+}

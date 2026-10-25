@@ -1,0 +1,47 @@
+{
+  "version": 2,
+  "checkpoint": {
+    "format": "aham-brahmasmi-checkpoint",
+    "required_fields": [
+      "format",
+      "version",
+      "id",
+      "created_at",
+      "workspace_fingerprint",
+      "summary",
+      "completed",
+      "next_steps",
+      "status"
+    ],
+    "status": "durable",
+    "rules": [
+      "Create a checkpoint after a meaningful completed milestone and before a risky transition.",
+      "Record only verified completed work as completed.",
+      "Record enough next-step information to resume without reconstructing the previous session.",
+      "If repository state is recorded, preserve branch and commit information for later verification."
+    ]
+  },
+  "recovery": {
+    "rules": [
+      "Refuse normal recovery while an unfinished wrap-up transaction exists.",
+      "Select the newest valid durable checkpoint.",
+      "Verify the checkpoint belongs to the current workspace.",
+      "If repository state was recorded, verify the current branch and ensure the recorded commit is still an ancestor of the current commit.",
+      "Report mismatches instead of guessing how to continue."
+    ]
+  },
+  "wrap_up": {
+    "transaction_file": "state/pending_wrap_up.json",
+    "archive_directory": "state/wrapups/",
+    "progress_field": "progress",
+    "rules": [
+      "Write a pending transaction before changing routed state.",
+      "Record the current replay-safe wrap-up step before performing it so a failure can identify the exact remaining stage.",
+      "Make routed writes idempotent so replay after interruption does not duplicate entries.",
+      "Route each durable item according to core/state_routes.json.",
+      "Create a final durable checkpoint after routed writes succeed.",
+      "Verify the resulting state before archiving the transaction as complete.",
+      "If interruption occurs, preserve the pending transaction, current progress step, step detail when available, and a recovery instruction so the same wrap-up can be replayed safely."
+    ]
+  }
+}

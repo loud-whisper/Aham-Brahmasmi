@@ -1,0 +1,45 @@
+{
+  "claude": {
+    "path": ".claude/settings.local.json",
+    "event": "PreToolUse",
+    "group": {
+      "matcher": "^(Bash|PowerShell)$",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$command",
+          "timeout": 10,
+          "onFailure": "block"
+        }
+      ]
+    }
+  },
+  "codex": {
+    "path": ".codex/hooks.json",
+    "event": "PreToolUse",
+    "group": {
+      "matcher": "^Bash$",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$command",
+          "timeout": 10
+        }
+      ]
+    }
+  },
+  "gemini": {
+    "path": ".gemini/settings.json",
+    "event": "BeforeTool",
+    "group": {
+      "matcher": "^run_shell_command$",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$command",
+          "timeout": 10000
+        }
+      ]
+    }
+  }
+}

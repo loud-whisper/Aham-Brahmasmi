@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "routes": {
+    "durable_fact": {
+      "destination": "MEMORY.md",
+      "examples": ["long-lived preference", "stable fact needed in future sessions"]
+    },
+    "unfinished_work": {
+      "destination": "TODO.md",
+      "examples": ["next action", "blocker", "open decision"]
+    },
+    "reusable_lesson": {
+      "destination": "LESSONS.md",
+      "examples": ["mistake and fix", "repeatable procedure", "useful failure pattern"]
+    },
+    "project_state": {
+      "destination": "projects/",
+      "examples": ["project decision", "project-specific plan", "project handoff"]
+    },
+    "session_history": {
+      "destination": "history/",
+      "examples": ["dated work summary", "meaningful outcome"]
+    },
+    "recovery_checkpoint": {
+      "destination": "state/checkpoints/",
+      "examples": ["completed milestone", "current state", "next verified step"]
+    }
+  },
+  "write_rules": [
+    "Write only durable information that belongs in the selected private workspace.",
+    "Do not copy private workspace content into the public framework repository.",
+    "Do not replace unrelated existing content when routing a new item.",
+    "Validate the destination and resulting state before reporting persistence as complete."
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "claude",
+  "display_name": "Claude-compatible runtime",
+  "kind": "named",
+  "capabilities_must_be_verified": true,
+  "requires_native_skill_loader": false,
+  "requires_semantic_memory": false,
+  "notes": "This profile names the runtime only. It does not assume tool access, native skill loading, semantic memory, shell access, or vendor-specific hooks."
+}
