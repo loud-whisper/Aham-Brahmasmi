@@ -22,6 +22,10 @@
 - **Changed:** a new wrap-up refuses an entry over its size cap (`wrap_up.item_caps_bytes` in
   `core/lifecycle.json`) and an entry that repeats an active fact or open task of the same projects,
   naming the existing ID. Pending and committed transactions replay without these checks.
+- A wrap-up bundle with an inventory may carry `lifecycle` changes: `task_complete`, `task_cancel`,
+  `fact_supersede` and `fact_retract`, each naming the inventory item that justifies it. A task is
+  completed only on work marked `verified`. An interrupted wrap-up applies each change exactly once
+  on recovery. `aham.py tasks` and `aham.py facts` list records and apply single changes.
 
 ## 0.1.0-preview.1
 

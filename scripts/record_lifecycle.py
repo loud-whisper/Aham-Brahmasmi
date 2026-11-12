@@ -193,29 +193,49 @@ def _verified_receipt(workspace: Path, record: dict[str, Any]) -> dict[str, Any]
     return receipt
 
 
-def apply_request(workspace: Path, request: dict[str, Any], session_id: str | None) -> tuple[dict[str, Any], bool]:
+def committed_receipt(workspace: Path, request: dict[str, Any]) -> dict[str, Any] | None:
+    """Receipt of an already committed request with this operation ID, if any."""
+    found = find_operation(workspace, request["operation_id"])
+    if not found:
+        return None
+    _, record = found
+    if record["kind"] != KIND or record["payload_digest"] != digest_json(request):
+        raise StateError("operation_id is already committed with different content")
+    return _verified_receipt(workspace, record)
+
+
+def apply_locked(workspace: Path, request: dict[str, Any], revision: int, *, commit=commit_operation,
+                 advance=advance_store_head) -> tuple[dict[str, Any], bool]:
+    """Apply one request at ``revision + 1``. The caller holds the writer lock and has
+    established authority. A request that is already committed is returned unchanged,
+    which makes replay after an interruption apply each request exactly once."""
+    existing = committed_receipt(workspace, request)
+    if existing is not None:
+        return existing, True
     digest = digest_json(request)
+    state = replay(workspace)
+    outcome = _apply(request, revision + 1, copy.deepcopy(state["facts"]), copy.deepcopy(state["tasks"]))
+    receipt = {"status": "complete", "kind": KIND, "operation_id": request["operation_id"], "revision": revision + 1, "action": request["action"], "target_id": outcome["target_id"], "result_id": outcome["result_id"], "payload_digest": digest}
+    path, record = commit(workspace, operation_id=request["operation_id"], kind=KIND, payload_digest=digest, details={"request": request, "receipt": receipt}, target_revision=revision + 1)
+    advance(workspace, path, record)
+    return _verified_receipt(workspace, record), False
+
+
+def apply_request(workspace: Path, request: dict[str, Any], session_id: str | None) -> tuple[dict[str, Any], bool]:
     with writer_lock(workspace) as head:
-        found = find_operation(workspace, request["operation_id"])
-        if found:
-            _, record = found
-            if record["kind"] != KIND or record["payload_digest"] != digest:
-                raise StateError("operation_id is already committed with different content")
-            return _verified_receipt(workspace, record), True
+        existing = committed_receipt(workspace, request)
+        if existing is not None:
+            return existing, True
         session = require_operation_authority(workspace, "wrap_up", session_id=session_id, committed_revision=head["revision"])
-        state = replay(workspace)
-        outcome = _apply(request, head["revision"] + 1, copy.deepcopy(state["facts"]), copy.deepcopy(state["tasks"]))
-        receipt = {"status": "complete", "kind": KIND, "operation_id": request["operation_id"], "revision": head["revision"] + 1, "action": request["action"], "target_id": outcome["target_id"], "result_id": outcome["result_id"], "payload_digest": digest}
-        path, record = commit_operation(workspace, operation_id=request["operation_id"], kind=KIND, payload_digest=digest, details={"request": request, "receipt": receipt}, target_revision=head["revision"] + 1)
-        advance_store_head(workspace, path, record)
-        advance_session_revision(workspace, session, record["revision"])
-        return _verified_receipt(workspace, record), False
+        receipt, _ = apply_locked(workspace, request, head["revision"])
+        advance_session_revision(workspace, session, receipt["revision"])
+        return receipt, False
 
 
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="command", required=True)
-    a = sub.add_parser("list"); a.add_argument("--workspace", required=True); a.add_argument("--json", action="store_true")
+    a = sub.add_parser("list"); a.add_argument("--workspace", required=True); a.add_argument("--json", action="store_true"); a.add_argument("--only", choices=("facts", "tasks"), help="Show only facts or only tasks")
     a = sub.add_parser("apply"); a.add_argument("--workspace", required=True); a.add_argument("--request", required=True); a.add_argument("--session-id"); a.add_argument("--json", action="store_true")
     a = sub.add_parser("status"); a.add_argument("--workspace", required=True); a.add_argument("--operation-id", required=True); a.add_argument("--json", action="store_true")
     return p
@@ -229,7 +249,10 @@ def main() -> int:
     args = parser().parse_args()
     workspace = resolve_workspace(args.workspace)
     if args.command == "list":
-        emit(replay(workspace), args.json); return 0
+        state = replay(workspace)
+        if args.only:
+            state.pop("tasks" if args.only == "facts" else "facts")
+        emit(state, args.json); return 0
     if args.command == "apply":
         request = validate_request(read_json(Path(args.request)))
         receipt, reused = apply_request(workspace, request, args.session_id)
