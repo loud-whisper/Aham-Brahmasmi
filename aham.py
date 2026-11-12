@@ -22,6 +22,7 @@ COMMANDS = {
     "revoke-runtime": ("runtime_trust.py", ["revoke"]), "runtimes": ("runtime_trust.py", ["list"]),
     "recover-access": ("runtime_trust.py", ["owner-recovery"]),
     "phrases": ("owner_phrases.py", []),
+    "confirm-context": ("confirm_context.py", []),
     "integration": ("integration_credentials.py", []),
 }
 
@@ -47,7 +48,7 @@ def delegate(script, arguments, *, compact=False) -> int:
         return result.returncode
     keys = ("format", "version", "ready", "requested_runtime", "runtime", "mode", "capabilities",
             "workspace_status", "write_policy", "writer_self_test", "session_authority", "blockers",
-            "skills", "semantic_memory_status", "semantic_memory_scope", "owner_phrases", "startup_context", "upgrade")
+            "skills", "semantic_memory_status", "semantic_memory_scope", "owner_phrases", "startup_context", "upgrade", "context_status")
     compact_report = {key: report[key] for key in keys if key in report}
     encoded = json.dumps(compact_report, sort_keys=True, ensure_ascii=True)
     if len(encoded.encode()) > 8 * 1024:

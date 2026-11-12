@@ -16,6 +16,31 @@ SESSION_VERSION = 1
 SESSION_ID = re.compile(r"^ses_[0-9a-f]{32}$")
 AUTHORITY_PATH = "state/session_authority.json"
 KNOWN_OPERATIONS = {"checkpoint", "recover_checkpoint", "wrap_up", "recover_wrap_up"}
+# New durable work needs confirmed reading; recovery of interrupted work does not.
+CONTEXT_GATED_OPERATIONS = {"checkpoint", "wrap_up"}
+CONTEXT_FIELDS = {"mode", "source_revision", "packet_sha256", "status", "confirmed_parts", "method"}
+CONTEXT_METHODS = {None, "packet_parts", "chat_packet"}
+PACKET_DIGEST = re.compile(r"^[0-9a-f]{64}$")
+
+
+def validate_context(value: Any) -> None:
+    """Reading state of a startup-issued session. Absent on owner and setup sessions."""
+    if value is None:
+        return
+    if not isinstance(value, dict) or set(value) != CONTEXT_FIELDS:
+        raise StateError("session authority context has unknown or missing fields")
+    if value["mode"] not in {"quick", "regular"} or value["status"] not in {"pending", "confirmed"}:
+        raise StateError("session authority context mode or status is not recognized")
+    if type(value["source_revision"]) is not int or value["source_revision"] < 0:
+        raise StateError("session authority context source_revision must be a non-negative integer")
+    if not isinstance(value["packet_sha256"], str) or not PACKET_DIGEST.fullmatch(value["packet_sha256"]):
+        raise StateError("session authority context packet_sha256 is invalid")
+    parts = value["confirmed_parts"]
+    if (not isinstance(parts, list) or any(type(item) is not int or item < 1 for item in parts)
+            or parts != sorted(set(parts))):
+        raise StateError("session authority context confirmed_parts must be ascending part indexes")
+    if value["method"] not in CONTEXT_METHODS or (value["method"] is None) != (value["status"] == "pending"):
+        raise StateError("session authority context method does not match its status")
 
 
 def authority_path(workspace: Path) -> Path:
@@ -50,7 +75,9 @@ def validate_session(value: Any, workspace: Path | None = None) -> dict[str, Any
         "allowed_operations",
         "current_revision",
     }
-    unknown = set(value) - required
+    # "context" is optional so that records written before reading confirmation
+    # existed, and owner or setup sessions that never carry it, remain valid.
+    unknown = set(value) - required - {"context"}
     missing = required - set(value)
     if unknown:
         raise StateError("session authority contains unknown fields: " + ", ".join(sorted(unknown)))
@@ -87,6 +114,7 @@ def validate_session(value: Any, workspace: Path | None = None) -> dict[str, Any
     revision = value.get("current_revision")
     if not isinstance(revision, int) or revision < 0:
         raise StateError("session authority current_revision must be a non-negative integer")
+    validate_context(value.get("context"))
     if workspace is not None:
         brain = require_workspace(workspace)
         if value["workspace_id"] != brain["workspace_id"]:
@@ -106,6 +134,7 @@ def issue_session(
     project_id: str | None = None,
     harness: str | None = None,
     current_revision: int | None = None,
+    context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     brain = require_workspace(workspace)
     operations = list(dict.fromkeys(allowed_operations))
@@ -130,6 +159,8 @@ def issue_session(
         "allowed_operations": operations,
         "current_revision": current_revision if current_revision is not None else current_revision_readonly(workspace),
     }
+    if context is not None:
+        record["context"] = context
     validate_session(record, workspace)
     durable_write_json(authority_path(workspace), record)
     return record
@@ -164,7 +195,14 @@ def require_operation_authority(
     session_id: str | None = None,
     project_id: str | None = None,
     committed_revision: int | None = None,
+    context_verified: bool = False,
 ) -> dict[str, Any]:
+    """Return the active session when it may run the operation.
+
+    ``context_verified`` is for a caller that has itself verified what the assistant
+    read, such as the chat import checking the echoed packet digest. It replaces only
+    the reading check; trust, mode, project and revision checks still apply.
+    """
     if operation not in KNOWN_OPERATIONS:
         raise StateError(f"unknown authority operation: {operation}")
     session = load_session(workspace)
@@ -189,6 +227,12 @@ def require_operation_authority(
         raise StateError(
             f"session authority denies operation '{operation}' in mode '{session['mode']}' for runtime '{session['runtime']}'"
         )
+    if not is_bootstrap_direct_cli and operation in CONTEXT_GATED_OPERATIONS and not context_verified:
+        context = session.get("context")
+        if context is None or context["status"] != "confirmed":
+            raise StateError(
+                f"session authority refuses '{operation}' until the startup context is confirmed as read; "
+                "read each part with context --startup --part N, then run confirm-context with every part_sha256")
     if not is_bootstrap_direct_cli:
         from runtime_trust import runtime_name, trusted_runtimes
         if runtime_name(session["requested_runtime"]) not in trusted_runtimes(workspace):
@@ -204,6 +248,18 @@ def require_operation_authority(
             f"session authority revision {session['current_revision']} does not match committed revision {committed_revision}; run startup again"
         )
     return session
+
+
+def mark_context_confirmed(workspace: Path, session_id: str, method: str) -> None:
+    """Record verified reading on the active startup-issued session, if it is pending."""
+    session = load_session(workspace)
+    context = session.get("context")
+    if session["session_id"] != session_id or context is None or context["status"] == "confirmed":
+        return
+    updated = dict(session)
+    updated["context"] = dict(context, status="confirmed", method=method)
+    validate_session(updated, workspace)
+    durable_write_json(authority_path(workspace), updated)
 
 
 def advance_session_revision(workspace: Path, session: dict[str, Any], revision: int) -> dict[str, Any]:

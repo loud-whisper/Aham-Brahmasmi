@@ -9,6 +9,13 @@
   needs `--context-loaded` (the flag is accepted and ignored) and its session allows no save or
   wrap-up; run `start --mode regular` first. `core/startup.json` is version 3 and
   `core/brain.json` sets `modes.quick.allow_validated_writes` to false.
+- **Changed:** a session issued by `start` may save or wrap up only after `aham.py confirm-context`
+  reports `CONTEXT CONFIRMED`. Read the packet with `context --startup --part N` and present each
+  `part_sha256`. Recovery commands and owner controls are unaffected. `start --mode regular
+  --upgrade-from SESSION_ID` keeps the parts a Quick session already confirmed.
+- **Changed:** the chat wrap-up response is version 2 and must echo `context_packet_sha256` and
+  `context_limit_bytes` from the exported template. A version 1 response is refused; export fresh
+  context and ask again.
 
 ## 0.1.0-preview.1
 

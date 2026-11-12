@@ -455,6 +455,21 @@ python3 {SANDBOX_FRAMEWORK}/scripts/startup.py --workspace {SANDBOX_WORKSPACE} -
 
 The JSON result must report the Brain ready and effective runtime writes ready. Save `session_authority.session_id` from that actual output as `SESSION_ID`. Every supported mutation below must present that exact issued session ID.
 
+Read the startup packet before any write. Run the first command for the part count, then the second once for each part number, and read every part:
+
+```text
+python3 {SANDBOX_FRAMEWORK}/aham.py context --startup --workspace {SANDBOX_WORKSPACE}
+python3 {SANDBOX_FRAMEWORK}/aham.py context --startup --workspace {SANDBOX_WORKSPACE} --part N
+```
+
+Then confirm the reading with the `part_sha256` printed in each part, one `--part-digest` per part in part order:
+
+```text
+python3 {SANDBOX_FRAMEWORK}/aham.py confirm-context --workspace {SANDBOX_WORKSPACE} --session-id SESSION_ID --part-digest PART_1_SHA256 --part-digest PART_2_SHA256
+```
+
+Require `CONTEXT CONFIRMED` in the actual output. Saves and wrap-ups are refused until then; never guess a digest.
+
 ## 2. Complete the small project task
 
 Replace the contents of `task.txt` with exactly this one line:

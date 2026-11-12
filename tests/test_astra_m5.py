@@ -10,6 +10,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+from confirm_context import read_all_and_confirm  # noqa: E402
 SETUP = ROOT / "scripts" / "setup_workspace.py"
 STARTUP = ROOT / "scripts" / "startup.py"
 CHECKPOINT = ROOT / "scripts" / "checkpoint.py"
@@ -69,7 +71,9 @@ class AstraM5RegressionTests(unittest.TestCase):
         args.append("--json")
         startup = self.run_script(STARTUP, *args)
         self.assertEqual(startup.returncode, 0, startup.stderr + startup.stdout)
-        return json.loads(startup.stdout)
+        report = json.loads(startup.stdout)
+        read_all_and_confirm(workspace, report["session_authority"]["session_id"])
+        return report
 
     def write_bundle(self, root: Path, operation_id: str = "m5-wrap") -> Path:
         path = root / f"{operation_id}.json"

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from project_state import project_by_id
-from session_authority import issue_session
+from session_authority import authority_path, issue_session, validate_session
 from state_io import StateError, newest_valid_checkpoint, read_json, require_workspace, resolve_workspace
 from state_store import writer_lock
 from third_party import installed_source_status
@@ -19,6 +19,7 @@ from semantic_memory import scope_payload
 import owner_phrases
 import runtime_trust
 from drift_checks import workspace_drift
+from startup_packet import build_startup_packet
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -72,6 +73,11 @@ def parse_args() -> argparse.Namespace:
         "--context-loaded",
         action="store_true",
         help="Deprecated and ignored: Quick mode now starts cold and read-only",
+    )
+    parser.add_argument(
+        "--upgrade-from",
+        metavar="SESSION_ID",
+        help="Session ID of this conversation's Quick start; parts it confirmed and that are unchanged need no second reading",
     )
     parser.add_argument("--json", action="store_true", help="Emit the ready report as JSON")
     return parser.parse_args()
@@ -145,6 +151,35 @@ def latest_checkpoint_summary(workspace: Path) -> dict[str, Any] | None:
     }
 
 
+def carried_parts(workspace: Path, runtime: str, upgrade_from: str | None, packet: dict[str, Any]) -> list[int]:
+    """Parts an upgrading conversation already confirmed and that are unchanged.
+
+    Reuse needs proof of continuity: the caller presents the session ID of the
+    still-active earlier session, issued for the same runtime, whose packet is
+    byte-for-byte what it confirmed. A fresh conversation therefore reads everything.
+    """
+    if not upgrade_from:
+        return []
+    path = authority_path(workspace)
+    if not path.is_file():
+        return []
+    try:
+        previous = validate_session(read_json(path), workspace)
+    except StateError:
+        return []
+    context = previous.get("context")
+    if (context is None or previous["session_id"] != upgrade_from or previous["source"] != "startup_controller"
+            or runtime_trust.runtime_name(previous["requested_runtime"]) != runtime
+            or context["source_revision"] != packet["source_revision"]):
+        return []
+    earlier = build_startup_packet(workspace, context["mode"], runtime=runtime)
+    if earlier["packet_sha256"] != context["packet_sha256"]:
+        return []
+    digests = {part["index"]: part["part_sha256"] for part in packet["parts"]}
+    return sorted(part["index"] for part in earlier["parts"]
+                  if part["index"] in context["confirmed_parts"] and digests.get(part["index"]) == part["part_sha256"])
+
+
 def build_report(args: argparse.Namespace) -> dict[str, Any]:
     workspace = resolve_workspace(args.workspace)
     brain = require_workspace(workspace)
@@ -209,6 +244,19 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         effective_runtime_write_ready = candidate and self_test["status"] == "passed"
         allowed_operations = (["checkpoint", "recover_checkpoint", "wrap_up", "recover_wrap_up"]
                               if effective_runtime_write_ready else [])
+        # The packet is rebuilt under the writer lock so the session is bound to the
+        # exact content the assistant is about to read.
+        packet = build_startup_packet(workspace, args.mode, runtime=normalized_runtime)
+        confirmed_parts = carried_parts(workspace, normalized_runtime, getattr(args, "upgrade_from", None), packet)
+        complete = len(confirmed_parts) == len(packet["parts"])
+        context = {
+            "mode": packet["mode"],
+            "source_revision": packet["source_revision"],
+            "packet_sha256": packet["packet_sha256"],
+            "status": "confirmed" if complete else "pending",
+            "confirmed_parts": confirmed_parts,
+            "method": "packet_parts" if complete else None,
+        }
         session = issue_session(
             workspace,
             source="startup_controller",
@@ -220,6 +268,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             allowed_operations=allowed_operations,
             project_id=project_id,
             current_revision=head["revision"],
+            context=context,
         )
 
     report = {
@@ -227,6 +276,10 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "version": 1,
         "ready": not blockers,
         "startup_context": drift["startup_context"],
+        "context_status": context["status"],
+        "context_packet": {"mode": packet["mode"], "packet_sha256": packet["packet_sha256"],
+                           "parts": len(packet["parts"]), "confirmed_parts": confirmed_parts,
+                           "read_with": "context --startup --part N", "confirm_with": "confirm-context"},
         "requested_runtime": args.runtime,
         "runtime": profile["id"],
         "harness": harness,
@@ -297,6 +350,12 @@ def print_human(report: dict[str, Any]) -> None:
         print("Excluded external source: " + json.dumps({"source_id": source_id, "reason": reason}, ensure_ascii=True))
     writes = report["write_policy"]["effective_runtime_write_ready"]
     print(f"Validated runtime writes: {'available' if writes else 'not established'}")
+    packet = report["context_packet"]
+    if report["context_status"] == "confirmed":
+        print("Context: confirmed as read")
+    else:
+        print(f"Context: not yet read. Read parts 1 to {packet['parts']} with {packet['read_with']}, "
+              f"then run {packet['confirm_with']} with every part_sha256.")
     if report.get("upgrade"):
         print("Quick is read-only: run " + report["upgrade"]["command"] + " before a save or wrap-up.")
     authority = report["session_authority"]

@@ -10,6 +10,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+from confirm_context import read_all_and_confirm  # noqa: E402
 SWITCH_TOOL = ROOT / "scripts" / "runtime_switch_rehearsal.py"
 EVIDENCE_TOOL = ROOT / "scripts" / "runtime_evidence.py"
 STARTUP = ROOT / "scripts" / "startup.py"
@@ -69,6 +71,7 @@ class RuntimeSwitchRecoveryRegressionTests(unittest.TestCase):
         )
         self.assertEqual(startup.returncode, 0, startup.stdout + startup.stderr)
         session = json.loads(startup.stdout)["session_authority"]["session_id"]
+        read_all_and_confirm(Path(workspace), session)
         bundle = root / "source-bundle.json"
         bundle.write_text(
             json.dumps(

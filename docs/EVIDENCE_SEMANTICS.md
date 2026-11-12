@@ -28,6 +28,15 @@ Dirty tracked files, untracked files and unsaved editor buffers are outside this
 
 **Runtime instruction compliance** means evidence shows that a particular runtime or harness followed the required lifecycle instructions in the tested session. A successful checkpoint or wrap-up command proves durable state behavior, not that the runtime followed every instruction around it.
 
+## Reported reading coverage
+
+`CONTEXT CONFIRMED` from `aham.py confirm-context` means the assistant presented the
+digest of every part of the startup packet that the controller issued for its
+session. The chat workflow has the same meaning when an imported response echoes the
+exported context digest. This shows each part was handled. It does not prove
+comprehension, and it is not evidence that the assistant followed any instruction
+in the packet. Saves and wrap-ups require it; recovery of interrupted work does not.
+
 ## End-to-end recovery
 
 **End-to-end recovery verified** means a separate recovery path was exercised and independently demonstrated that the intended continuation state can be reconstructed. Successfully writing and reading back a checkpoint is not by itself an end-to-end recovery test.

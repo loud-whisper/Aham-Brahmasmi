@@ -185,6 +185,21 @@ python3 /framework/scripts/startup.py --workspace /work/workspace --runtime loca
 
 Retain the exact issued `session_authority.session_id`.
 
+Read the startup packet before any write. Run the first command for the part count, then the second once for each part number, and read every part:
+
+```text
+python3 /framework/aham.py context --startup --workspace /work/workspace
+python3 /framework/aham.py context --startup --workspace /work/workspace --part N
+```
+
+Then confirm the reading with the `part_sha256` printed in each part, one `--part-digest` per part in part order:
+
+```text
+python3 /framework/aham.py confirm-context --workspace /work/workspace --session-id SESSION_ID --part-digest PART_1_SHA256 --part-digest PART_2_SHA256
+```
+
+Require `CONTEXT CONFIRMED` in the actual output. Saves and wrap-ups are refused until then; never guess a digest.
+
 4. Create `/tmp/runtime-switch-source-bundle.json` with exactly this canonical payload:
 
 ```json
