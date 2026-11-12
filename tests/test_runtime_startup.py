@@ -79,24 +79,25 @@ class RuntimeStartupTests(unittest.TestCase):
             self.assertEqual(report["capabilities"], [])
             self.assertFalse(report["write_policy"]["effective_runtime_write_ready"])
 
-    def test_quick_mode_requires_verified_loaded_context(self) -> None:
+    def test_quick_mode_starts_cold_and_read_only(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             workspace = self.create_workspace(Path(temp))
-            blocked, report = self.startup_report(workspace, runtime="claude", mode="quick")
-            self.assertEqual(blocked.returncode, 2)
-            self.assertFalse(report["ready"])
-            self.assertEqual(report["state_freshness"], "unverified")
-            self.assertTrue(any("Quick mode" in blocker for blocker in report["blockers"]))
+            ready, report = self.startup_report(workspace, runtime="claude", mode="quick")
+            self.assertEqual(ready.returncode, 0, ready.stdout + ready.stderr)
+            self.assertTrue(report["ready"])
+            self.assertEqual(report["state_freshness"], "verified_local")
+            self.assertFalse(report["write_policy"]["core_allows_writes"])
+            self.assertEqual(report["upgrade"]["command"], "start --mode regular")
 
-            ready, report = self.startup_report(
+            # The earlier confirmation flag is still accepted and changes nothing.
+            flagged, report = self.startup_report(
                 workspace,
                 runtime="claude",
                 mode="quick",
                 context_loaded=True,
             )
-            self.assertEqual(ready.returncode, 0, ready.stdout + ready.stderr)
-            self.assertTrue(report["ready"])
-            self.assertEqual(report["state_freshness"], "verified_loaded_context")
+            self.assertEqual(flagged.returncode, 0, flagged.stdout + flagged.stderr)
+            self.assertEqual(report["state_freshness"], "verified_local")
 
     def test_runtime_switch_reads_the_same_durable_checkpoint(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

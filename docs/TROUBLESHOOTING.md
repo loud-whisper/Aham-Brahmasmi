@@ -50,7 +50,28 @@ PYTHON aham.py wrap-up --workspace <your-private-workspace> --recover-pending --
 
 If the pending transaction recorded a project Git state, provide the same project with `--repo <project-folder>` so it can be verified.
 
-Another common reason is Quick mode without already-loaded verified context. Use Regular mode instead, or use Quick only when the current context really is already loaded and verified.
+Quick mode no longer blocks startup. It starts read-only; see the next section if a save or wrap-up is refused.
+
+## A save or wrap-up is refused
+
+Read the message; it names the cause.
+
+- **"Quick sessions are read-only"**: run `PYTHON aham.py start` again with `--mode regular`, then use the new session ID.
+- **"until the startup context is confirmed as read"**: the assistant has not confirmed its reading. It should run `PYTHON aham.py context --startup --workspace <your-private-workspace>`, read each part with `--part N`, then run `PYTHON aham.py confirm-context` with every part's `part_sha256` until it prints `CONTEXT CONFIRMED`.
+- **`CONTEXT CHECK COULD NOT RUN`**: the workspace or a standing file changed after the session started. Run `start` again and read the new packet.
+- **"is N bytes; the cap is M"**: one entry is too long. Shorten it or split it.
+- **"repeats active fact" or "repeats open task"**: that item is already recorded under the ID shown. Remove it from the bundle, or change the existing record through `lifecycle`.
+- **"belongs to no inventory item"**: the bundle has an inventory, so every entry must be listed under the piece of work that produced it.
+- **"keep the task open"**: a task can be completed only on work marked `verified`.
+- **No write operations and `state_freshness` is `behind_upstream_ref` or `diverged_from_upstream_ref`**: the workspace Git history is missing commits its upstream ref has. Bring the workspace up to date yourself, then start again.
+
+## Startup says the context exceeds the byte budget
+
+The message lists the standing files and their sizes. Standing files are the
+top-level files in `INDEX.json` other than `BRAIN.json`, `INDEX.json`, `MEMORY.md`,
+`TODO.md` and `LESSONS.md`, and they are always delivered whole. Shorten one, move
+reference material into a project folder, or raise `startup_budget_bytes` in
+`INDEX.json`. Growth of `MEMORY.md`, `TODO.md` or `LESSONS.md` does not cause this.
 
 ## `WRAP UP FAILED`
 

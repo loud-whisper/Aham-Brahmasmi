@@ -40,13 +40,13 @@ The report verifies the private workspace, identifies the runtime profile, shows
 
 ## Quick mode
 
-Quick mode is only valid when current context is already loaded and verified. The executable therefore requires:
+Quick mode is a light cold start. It verifies the workspace and serves a short packet of standing files and active facts, and its session is read-only:
 
 ```text
---mode quick --context-loaded
+--mode quick
 ```
 
-Without that confirmation, startup is blocked rather than pretending the context is current.
+A save or wrap-up needs `--mode regular` first. The earlier `--context-loaded` flag is still accepted and has no effect. In either mode the assistant reads the packet with `aham.py context --startup` and confirms it with `aham.py confirm-context`; see `docs/LIFECYCLE.md`.
 
 ## Unknown runtimes
 

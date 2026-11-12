@@ -87,6 +87,17 @@ You may later connect the private workspace repository to any Git-compatible rem
 
 Provider-specific remote setup should be documented only after the relevant public upstream behavior has been verified. The core contract must continue to work without any particular hosting provider.
 
+## Snapshot at wrap-up and upstream status
+
+`wrap_up.py --snapshot` takes the same local snapshot after the wrap-up is committed and verified, and reports the commit in the receipt's `summary.snapshot`. A snapshot failure is reported there as `failed`; it never invalidates the wrap-up. Without the flag the status is `not_requested`, and `not_configured` when the workspace has no Git history.
+
+If you connected a remote yourself and the branch tracks an upstream, two read-only comparisons appear:
+
+- the receipt's `summary.replication` says whether the snapshot is `contained_in_upstream_ref` or `ahead_of_upstream_ref`;
+- startup's `state_freshness` says whether the workspace `matches_upstream_ref`, or is `ahead_of`, `behind` or `diverged_from` it. When the workspace is missing commits the upstream ref has, a Regular start allows reading but no save or wrap-up until you bring it up to date.
+
+Both read only the upstream ref already stored on this machine. Aham does not fetch, so a match is not proof of the remote's current state: run `git fetch` yourself first when that matters. Aham does not push; `ahead_of_upstream_ref` means the push is yours to make.
+
 ## Failure behavior
 
 If Git is unavailable or a Git command fails, the private workspace files remain intact and continue to be the required durable state.

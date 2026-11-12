@@ -36,9 +36,9 @@
   },
   "modes": {
     "quick": {
-      "purpose": "Use context that is already loaded while preserving all core rules.",
+      "purpose": "Start light and read-only with standing instructions and active facts; upgrade to Regular before any save or wrap-up.",
       "refresh_durable_context": false,
-      "allow_validated_writes": true
+      "allow_validated_writes": false
     },
     "regular": {
       "purpose": "Load or verify current durable context before work begins.",

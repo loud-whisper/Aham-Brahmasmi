@@ -22,6 +22,7 @@ COMMANDS = {
     "revoke-runtime": ("runtime_trust.py", ["revoke"]), "runtimes": ("runtime_trust.py", ["list"]),
     "recover-access": ("runtime_trust.py", ["owner-recovery"]),
     "phrases": ("owner_phrases.py", []),
+    "confirm-context": ("confirm_context.py", []),
     "integration": ("integration_credentials.py", []),
 }
 
@@ -47,7 +48,8 @@ def delegate(script, arguments, *, compact=False) -> int:
         return result.returncode
     keys = ("format", "version", "ready", "requested_runtime", "runtime", "mode", "capabilities",
             "workspace_status", "write_policy", "writer_self_test", "session_authority", "blockers",
-            "skills", "semantic_memory_status", "semantic_memory_scope", "owner_phrases", "startup_context")
+            "skills", "semantic_memory_status", "semantic_memory_scope", "owner_phrases", "startup_context", "upgrade", "context_status", "context_packet",
+            "state_freshness", "latest_checkpoint", "pending_wrap_up")
     compact_report = {key: report[key] for key in keys if key in report}
     encoded = json.dumps(compact_report, sort_keys=True, ensure_ascii=True)
     if len(encoded.encode()) > 8 * 1024:
@@ -86,12 +88,15 @@ def main(argv=None) -> int:
     arguments = list(sys.argv[1:] if argv is None else argv)
     parser = argparse.ArgumentParser(description="Aham Brahmasmi: user-owned durable context for any assistant.",
                                      epilog="Run a command with --help for its options. Owner trust commands require --confirm NAME.")
-    parser.add_argument("command", choices=sorted([*COMMANDS, "skills", "context", "import-wrapup"]), nargs="?")
+    parser.add_argument("command", choices=sorted([*COMMANDS, "skills", "context", "import-wrapup", "tasks", "facts"]), nargs="?")
     if not arguments or arguments[0] in {"-h", "--help"}:
         parser.print_help()
         return 0
     command, *rest = arguments
     try:
+        if command == "context" and "--startup" in rest:
+            rest.remove("--startup")
+            return delegate("startup_packet.py", rest)
         if command in {"context", "import-wrapup"}:
             return chat_command(command, rest)
         if command == "skills":
@@ -102,6 +107,14 @@ def main(argv=None) -> int:
             if rest[0] in {"list", "refresh", "enable", "disable"}:
                 return delegate("skills_index.py", rest)
             return delegate("skills_lifecycle.py", rest)
+        if command in {"tasks", "facts"}:
+            # Fact and task records by stable ID: list them, apply a change, or check one.
+            if not rest or rest[0] in {"-h", "--help"}:
+                print(f"{command.capitalize()}: list, apply, status. Use aham.py {command} COMMAND --help for options.\n"
+                      "Changes go through a request file; a wrap-up bundle can also carry them in 'lifecycle'.")
+                return 0
+            extra = ["--only", command] if rest[0] == "list" else []
+            return delegate("record_lifecycle.py", [*rest, *extra])
         if command not in COMMANDS:
             parser.error("unknown command: " + command)
         script, prefix = COMMANDS[command]

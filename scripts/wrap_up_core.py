@@ -9,6 +9,7 @@ import json
 import re
 import sys
 from recovery_commands import recovery_command
+import unicodedata
 import uuid
 from pathlib import Path
 from typing import Any, Callable
@@ -28,6 +29,7 @@ from state_io import (
     write_checkpoint,
 )
 from state_store import (
+    list_operation_records,
     advance_store_head,
     assert_expected_revision,
     commit_operation,
@@ -42,6 +44,11 @@ from state_store import (
 
 WRAP_FORMAT = "aham-brahmasmi-wrap-up"
 WRAP_VERSION = 3
+# Version 4 adds the session inventory. A request without one is still stored as
+# version 3, so older bundles, digests and pending transactions are unchanged.
+INVENTORY_VERSION = 4
+SUPPORTED_VERSIONS = {WRAP_VERSION, INVENTORY_VERSION}
+ROOT = Path(__file__).resolve().parents[1]
 CONTROL_VERSION = 1
 OPERATION_ID = re.compile(r"^[A-Za-z0-9._-]{1,80}$")
 ProgressCallback = Callable[[str, str | None], None]
@@ -56,6 +63,15 @@ REQUEST_CANONICAL_FIELDS = {
     "checkpoint",
 }
 REQUEST_ALIASES = {"session_id", "facts", "lessons", "projects"}
+REQUEST_EXTENSION_FIELDS = {"inventory", "lifecycle"}
+LIFECYCLE_ACTIONS = {"task_complete": "task", "task_cancel": "task", "fact_supersede": "fact", "fact_retract": "fact"}
+LIFECYCLE_FIELDS = {"action", "id", "reason", "item", "replacement"}
+ROUTED_FIELDS = ("durable_facts", "unfinished_work", "reusable_lessons", "project_updates", "history")
+INVENTORY_ITEM_FIELDS = {"id", "summary", "evidence_status", "evidence", "next_action", "routes",
+                         "nothing_durable_reason"}
+EVIDENCE_STATUSES = {"verified", "owner_reported", "inferred", "unverified", "not_done"}
+EVIDENCE_REQUIRED = {"verified", "owner_reported"}
+INVENTORY_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 PERSISTED_BUNDLE_FIELDS = {
     "durable_facts",
     "unfinished_work",
@@ -208,8 +224,196 @@ def normalize_checkpoint(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _optional_text(value: Any, label: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise StateError(f"{label} must be null or a non-empty string")
+    return value.strip()
+
+
+def normalize_inventory(value: Any, bundle: dict[str, Any],
+                        lifecycle_items: frozenset[str] = frozenset()) -> list[dict[str, Any]]:
+    """Validate the list of every piece of work in the session.
+
+    Each item says what was done, how well that is supported, and where its durable
+    result went. Every routed entry must belong to an item, so nothing reaches
+    durable state without an evidence label.
+    """
+    if not isinstance(value, list) or not value:
+        raise StateError("bundle field 'inventory' must be a non-empty list of work items")
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    covered: set[tuple[str, int]] = set()
+    for position, raw in enumerate(value, start=1):
+        if not isinstance(raw, dict):
+            raise StateError(f"inventory item #{position} must be an object")
+        label = f"inventory item #{position}"
+        reject_unknown_fields(raw, INVENTORY_ITEM_FIELDS, label)
+        identity = raw.get("id")
+        if not isinstance(identity, str) or not INVENTORY_ID.fullmatch(identity):
+            raise StateError(f"{label} id must be a lowercase slug of letters, digits and hyphens")
+        label = f"inventory item '{identity}'"
+        if identity in seen:
+            raise StateError(f"{label} appears more than once")
+        seen.add(identity)
+        summary = raw.get("summary")
+        if not isinstance(summary, str) or not summary.strip():
+            raise StateError(f"{label} needs a summary")
+        status = raw.get("evidence_status")
+        if status not in EVIDENCE_STATUSES:
+            raise StateError(f"{label} evidence_status must be one of: {', '.join(sorted(EVIDENCE_STATUSES))}")
+        evidence = raw.get("evidence", "")
+        if not isinstance(evidence, str):
+            raise StateError(f"{label} evidence must be a string")
+        if status in EVIDENCE_REQUIRED and not evidence.strip():
+            raise StateError(f"{label} is marked {status} and must say what the evidence is")
+        raw_routes = raw.get("routes", [])
+        if not isinstance(raw_routes, list):
+            raise StateError(f"{label} routes must be a list")
+        routes: list[dict[str, Any]] = []
+        for route in raw_routes:
+            if not isinstance(route, dict) or set(route) != {"field", "index"}:
+                raise StateError(f"{label} routes must be objects with 'field' and 'index'")
+            field, index = route["field"], route["index"]
+            if field not in ROUTED_FIELDS or type(index) is not int or not 0 <= index < len(bundle[field]):
+                raise StateError(f"{label} routes to {field!r} index {index!r}, which is not an entry in this bundle")
+            if (field, index) in covered:
+                raise StateError(f"{label} routes to {field} index {index}, which another item already claims")
+            covered.add((field, index))
+            routes.append({"field": field, "index": index})
+        reason = _optional_text(raw.get("nothing_durable_reason"), f"{label} nothing_durable_reason")
+        if not routes and reason is None and identity not in lifecycle_items:
+            raise StateError(f"{label} routes nothing; give a nothing_durable_reason or route its result")
+        items.append({"id": identity, "summary": summary.strip(), "evidence_status": status,
+                      "evidence": evidence.strip(),
+                      "next_action": _optional_text(raw.get("next_action"), f"{label} next_action"),
+                      "routes": routes, "nothing_durable_reason": reason})
+    for field in ROUTED_FIELDS:
+        for index in range(len(bundle[field])):
+            if (field, index) not in covered:
+                raise StateError(f"bundle entry {field} index {index} belongs to no inventory item; "
+                                 "list the work that produced it or remove it")
+    return items
+
+
+def lifecycle_item_ids(value: Any) -> frozenset[str]:
+    if not isinstance(value, list):
+        return frozenset()
+    return frozenset(entry["item"] for entry in value if isinstance(entry, dict) and isinstance(entry.get("item"), str))
+
+
+def normalize_lifecycle(value: Any, inventory: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    """Validate requested task closures and fact changes against the inventory.
+
+    Each entry names the inventory item that justifies it. A task may be completed
+    only on verified work; otherwise it stays open with its next action.
+    """
+    if not isinstance(value, list) or not value:
+        raise StateError("bundle field 'lifecycle' must be a non-empty list")
+    if inventory is None:
+        raise StateError("bundle field 'lifecycle' needs an inventory; each change names the item that justifies it")
+    items = {item["id"]: item for item in inventory}
+    entries: list[dict[str, Any]] = []
+    targets: set[str] = set()
+    for position, raw in enumerate(value, start=1):
+        label = f"lifecycle entry #{position}"
+        if not isinstance(raw, dict):
+            raise StateError(f"{label} must be an object")
+        reject_unknown_fields(raw, LIFECYCLE_FIELDS, label)
+        action = raw.get("action")
+        if action not in LIFECYCLE_ACTIONS:
+            raise StateError(f"{label} action must be one of: {', '.join(sorted(LIFECYCLE_ACTIONS))}")
+        target = raw.get("id")
+        if not isinstance(target, str) or not target.startswith(LIFECYCLE_ACTIONS[action] + "_"):
+            raise StateError(f"{label} id must be a {LIFECYCLE_ACTIONS[action]}_... record ID")
+        if target in targets:
+            raise StateError(f"{label} targets {target}, which an earlier entry already changes")
+        targets.add(target)
+        reason = _optional_text(raw.get("reason"), f"{label} reason")
+        if reason is None:
+            raise StateError(f"{label} needs a reason")
+        item = items.get(raw.get("item")) if isinstance(raw.get("item"), str) else None
+        if item is None:
+            raise StateError(f"{label} names inventory item {raw.get('item')!r}, which is not in the inventory")
+        if action == "task_complete" and item["evidence_status"] != "verified":
+            raise StateError(f"{label} completes {target} on work marked {item['evidence_status']}; "
+                             "keep the task open and record the next action instead")
+        entry = {"action": action, "id": target, "reason": reason, "item": item["id"]}
+        replacement = _optional_text(raw.get("replacement"), f"{label} replacement")
+        if (action == "fact_supersede") != (replacement is not None):
+            raise StateError(f"{label} replacement is required for fact_supersede and not allowed otherwise")
+        if replacement is not None:
+            entry["replacement"] = replacement
+        entries.append(entry)
+    return entries
+
+
+def lifecycle_operation_id(wrap_operation_id: str, index: int) -> str:
+    return "lc-" + hashlib.sha256(f"{wrap_operation_id}:{index}".encode("utf-8")).hexdigest()[:32]
+
+
+def lifecycle_requests(transaction: dict[str, Any]) -> list[dict[str, Any]]:
+    """The record lifecycle requests a wrap-up carries, with replay-stable IDs."""
+    requests: list[dict[str, Any]] = []
+    for index, entry in enumerate(transaction.get("lifecycle") or []):
+        request: dict[str, Any] = {"operation_id": lifecycle_operation_id(transaction["operation_id"], index),
+                                   "action": entry["action"], "reason": entry["reason"]}
+        request["task_id" if entry["action"].startswith("task_") else "fact_id"] = entry["id"]
+        if entry["action"] == "fact_supersede":
+            request["statement"] = entry["replacement"]
+            request["source"] = f"wrap-up {transaction['operation_id']} item {entry['item']}"
+        requests.append(request)
+    return requests
+
+
+def apply_lifecycle(workspace: Path, pending_path: Path, transaction: dict[str, Any]) -> list[dict[str, Any]]:
+    """Apply the wrap-up's task closures and fact changes, each exactly once.
+
+    This runs after the wrap-up itself is committed and while its pending file still
+    exists, so an interruption leaves a recoverable transaction. Every change is an
+    ordinary lifecycle operation with an ID derived from the wrap-up, and one that is
+    already committed is skipped on replay.
+    """
+    from record_lifecycle import apply_locked, validate_request
+
+    requests = lifecycle_requests(transaction)
+    results: list[dict[str, Any]] = []
+    for position, request in enumerate(requests, start=1):
+        target = request.get("task_id", request.get("fact_id"))
+        if pending_path.is_file() and transaction.get("status") == "pending":
+            record_progress(pending_path, transaction, "apply_lifecycle",
+                            f"{request['action']} {target} ({position} of {len(requests)})")
+        head = reconcile_store(workspace)
+        receipt, reused = apply_locked(workspace, validate_request(request), head["revision"],
+                                       commit=commit_operation, advance=advance_store_head)
+        results.append({"id": target, "action": request["action"], "status": "already_applied" if reused else "applied",
+                        "operation_id": request["operation_id"], "result_id": receipt.get("result_id")})
+        test_crash_point("wrap_up_after_lifecycle_operation")
+    return results
+
+
+def transaction_payload(bundle: dict[str, Any], inventory: list[dict[str, Any]] | None,
+                        lifecycle: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """What the payload digest covers. Without an inventory this is the bundle alone,
+    exactly as before version 4."""
+    if inventory is None:
+        return bundle
+    payload: dict[str, Any] = {"bundle": bundle, "inventory": inventory}
+    if lifecycle:
+        payload["lifecycle"] = lifecycle
+    return payload
+
+
 def normalize_request(raw: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-    reject_unknown_fields(raw, REQUEST_CANONICAL_FIELDS | REQUEST_ALIASES, "bundle")
+    operation_id, bundle, _, _ = normalize_full_request(raw)
+    return operation_id, bundle
+
+
+def normalize_full_request(
+    raw: dict[str, Any],
+) -> tuple[str, dict[str, Any], list[dict[str, Any]] | None, list[dict[str, Any]] | None]:
+    reject_unknown_fields(raw, REQUEST_CANONICAL_FIELDS | REQUEST_ALIASES | REQUEST_EXTENSION_FIELDS, "bundle")
     if "operation_id" in raw and "session_id" in raw:
         raise StateError("bundle cannot contain both 'operation_id' and alias 'session_id'")
     checkpoint = raw.get("checkpoint")
@@ -227,7 +431,94 @@ def normalize_request(raw: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         "history": string_list(raw.get("history"), "history"),
         "checkpoint": normalize_checkpoint(checkpoint),
     }
-    return operation_id, bundle
+    inventory = None
+    if "inventory" in raw:
+        if "completed" in checkpoint:
+            raise StateError("bundle checkpoint.completed cannot be supplied with an inventory; "
+                             "completed work is taken from the items marked verified")
+        inventory = normalize_inventory(raw["inventory"], bundle, lifecycle_item_ids(raw.get("lifecycle")))
+        bundle["checkpoint"]["completed"] = [item["summary"] for item in inventory
+                                             if item["evidence_status"] == "verified"]
+    lifecycle = normalize_lifecycle(raw["lifecycle"], inventory) if "lifecycle" in raw else None
+    return operation_id, bundle, inventory, lifecycle
+
+
+def item_caps() -> dict[str, int]:
+    contract = read_json(ROOT / "core" / "lifecycle.json")
+    caps = contract.get("wrap_up", {}).get("item_caps_bytes")
+    if not isinstance(caps, dict) or any(type(value) is not int or value <= 0 for value in caps.values()):
+        raise StateError("lifecycle contract does not define wrap_up.item_caps_bytes")
+    return caps
+
+
+def normalized_text(value: str) -> str:
+    """Comparison form for duplicate detection: NFKC, casefolded, single spaces."""
+    return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
+
+
+def check_new_request(workspace: Path, bundle: dict[str, Any], lifecycle: list[dict[str, Any]] | None = None) -> None:
+    """Size and duplicate checks for work that is new to this workspace.
+
+    These run only before a new pending transaction is written. Replay of a pending
+    or committed transaction never passes through here, so content accepted by an
+    earlier framework version still recovers.
+    """
+    for field, cap in item_caps().items():
+        for index, entry in enumerate(bundle.get(field, [])):
+            size = len(entry.encode("utf-8"))
+            if size > cap:
+                raise StateError(f"bundle entry {field} index {index} is {size} bytes; the cap is {cap}. "
+                                 "Shorten it or split it into separate entries.")
+    for field in ("durable_facts", "unfinished_work", "reusable_lessons"):
+        first: dict[str, int] = {}
+        for index, entry in enumerate(bundle[field]):
+            key = normalized_text(entry)
+            if key in first:
+                raise StateError(f"bundle entries {field} index {first[key]} and index {index} say the same thing; keep one")
+            first[key] = index
+    from project_state import project_id_by_name, project_ids_from_record
+    from record_lifecycle import replay_records
+
+    if lifecycle:
+        # Every target must exist and still be changeable, or nothing is written at all.
+        current = replay_records(list_operation_records(workspace))
+        open_tasks = {task["task_id"] for task in current["tasks"] if task["status"] == "open"}
+        active_facts = {fact["fact_id"] for fact in current["facts"] if fact["status"] == "active"}
+        fact_cap = item_caps()["durable_facts"]
+        for position, entry in enumerate(lifecycle, start=1):
+            is_task = entry["action"].startswith("task_")
+            if entry["id"] not in (open_tasks if is_task else active_facts):
+                raise StateError(f"lifecycle entry #{position} targets {entry['id']}, which is not "
+                                 f"{'an open task' if is_task else 'an active fact'} in this workspace")
+            size = len(entry.get("replacement", "").encode("utf-8"))
+            if size > fact_cap:
+                raise StateError(f"lifecycle entry #{position} replacement is {size} bytes; the cap is {fact_cap}")
+
+    # The same words may be true of two projects, so a repeat counts only when it is
+    # recorded for the same set of projects as the existing record.
+    names = [update["project"] for update in bundle["project_updates"]]
+    if bundle["checkpoint"]["project"]:
+        names.append(bundle["checkpoint"]["project"])
+    resolved = [project_id_by_name(workspace, name) for name in dict.fromkeys(names)]
+    if any(project_id is None for project_id in resolved):
+        return  # A project new to the workspace cannot repeat an existing record.
+    scope = sorted(set(resolved))
+    records = list_operation_records(workspace)
+    scopes = {record["operation_id"]: sorted(set(project_ids_from_record(workspace, record)))
+              for _, record in records}
+    state = replay_records(records)
+    for field, entries, text_key, id_key, status, noun in (
+        ("durable_facts", state["facts"], "statement", "fact_id", "active", "active fact"),
+        ("unfinished_work", state["tasks"], "description", "task_id", "open", "open task"),
+    ):
+        known = {normalized_text(entry[text_key]): entry[id_key] for entry in entries
+                 if entry.get("status") == status
+                 and scopes.get(entry.get("provenance", {}).get("operation_id"), []) == scope}
+        for index, entry in enumerate(bundle[field]):
+            existing = known.get(normalized_text(entry))
+            if existing:
+                raise StateError(f"bundle entry {field} index {index} repeats {noun} {existing}; "
+                                 "remove it, or change the record through its ID")
 
 
 def validate_canonical_bundle(bundle: Any) -> dict[str, Any]:
@@ -350,10 +641,13 @@ def validate_transaction(transaction: Any, *, expected_status: str | None = None
     required = PENDING_FIELDS - {"progress"}
     if status == "complete":
         required |= {"completed_at", "checkpoint_file", "committed_items", "revision"}
+    if transaction.get("format") != WRAP_FORMAT or transaction.get("version") not in SUPPORTED_VERSIONS:
+        raise StateError("persisted wrap-up format/version is not recognized")
+    if transaction["version"] == INVENTORY_VERSION:
+        allowed = allowed | {"inventory", "lifecycle"}
+        required = required | {"inventory"}
     reject_unknown_fields(transaction, allowed, "persisted wrap-up transaction")
     require_exact_fields(transaction, required, "persisted wrap-up transaction")
-    if transaction.get("format") != WRAP_FORMAT or transaction.get("version") != WRAP_VERSION:
-        raise StateError("persisted wrap-up format/version is not recognized")
     operation_id = validate_operation_id(transaction.get("operation_id"))
     for field in ("created_at", "workspace_fingerprint", "payload_digest"):
         if not isinstance(transaction.get(field), str) or not transaction[field]:
@@ -367,7 +661,13 @@ def validate_transaction(transaction: Any, *, expected_status: str | None = None
     if not isinstance(base_revision, int) or base_revision < 0 or target_revision != base_revision + 1:
         raise StateError("persisted wrap-up revision transition is invalid")
     bundle = validate_canonical_bundle(transaction.get("bundle"))
-    if payload_digest(bundle) != transaction["payload_digest"]:
+    inventory = transaction.get("inventory")
+    lifecycle = transaction.get("lifecycle")
+    if inventory is not None and normalize_inventory(inventory, bundle, lifecycle_item_ids(lifecycle)) != inventory:
+        raise StateError("persisted wrap-up inventory is not in canonical form")
+    if "lifecycle" in transaction and normalize_lifecycle(lifecycle, inventory) != lifecycle:
+        raise StateError("persisted wrap-up lifecycle is not in canonical form")
+    if payload_digest(transaction_payload(bundle, inventory, lifecycle)) != transaction["payload_digest"]:
         raise StateError("persisted payload digest does not match the canonical bundle")
     validate_repository(transaction.get("repository"))
     validate_progress(transaction.get("progress"))
@@ -387,21 +687,26 @@ def validate_transaction(transaction: Any, *, expected_status: str | None = None
 
 def load_new_transaction(workspace: Path, bundle_path: Path, repo: str | None, base_revision: int) -> dict[str, Any]:
     raw = read_json(bundle_path)
-    operation_id, bundle = normalize_request(raw)
+    operation_id, bundle, inventory, lifecycle = normalize_full_request(raw)
     repository = git_snapshot(repo) if repo else None
-    return {
+    transaction = {
         "format": WRAP_FORMAT,
-        "version": WRAP_VERSION,
+        "version": WRAP_VERSION if inventory is None else INVENTORY_VERSION,
         "status": "pending",
         "operation_id": operation_id,
         "created_at": utc_now(),
         "workspace_fingerprint": workspace_fingerprint(require_workspace(workspace)),
         "repository": repository,
-        "payload_digest": payload_digest(bundle),
+        "payload_digest": payload_digest(transaction_payload(bundle, inventory, lifecycle)),
         "bundle": bundle,
         "base_revision": base_revision,
         "target_revision": base_revision + 1,
     }
+    if inventory is not None:
+        transaction["inventory"] = inventory
+    if lifecycle:
+        transaction["lifecycle"] = lifecycle
+    return transaction
 
 
 def record_progress(pending_path: Path, transaction: dict[str, Any], step: str, detail: str | None = None) -> None:
@@ -668,7 +973,10 @@ def materialize_committed_record(workspace: Path, record_path: Path, record: dic
     checkpoint_path, committed_items = apply_transaction(workspace, pending_shape)
     if committed_items != completed["committed_items"] or f"state/checkpoints/{checkpoint_path.name}" != completed["checkpoint_file"]:
         raise StateError("committed operation projections do not match the immutable record")
-    advance_store_head(workspace, record_path, record)
+    # Point the head at this record only while it is the newest operation. Later
+    # operations, such as the wrap-up's own lifecycle changes, must not be rewound.
+    if reconcile_store(workspace)["revision"] == record["revision"]:
+        advance_store_head(workspace, record_path, record)
     archive = archive_path(workspace, completed["operation_id"])
     if archive.exists():
         existing = read_json(archive)
@@ -732,6 +1040,7 @@ def finish_transaction(workspace: Path, pending_path: Path, transaction: dict[st
         if record["payload_digest"] != transaction["payload_digest"] or record["revision"] != transaction["target_revision"]:
             raise StateError("pending transaction conflicts with its committed operation record")
         completed, checkpoint_path, archive = materialize_committed_record(workspace, record_path, record)
+        apply_lifecycle(workspace, pending_path, transaction)
         if pending_path.exists():
             pending_path.unlink()
             sync_directory(pending_path.parent)
@@ -769,6 +1078,7 @@ def finish_transaction(workspace: Path, pending_path: Path, transaction: dict[st
     durable_write_json(archive, completed)
     verify_completed_state(workspace, completed)
     test_crash_point("wrap_up_after_receipt")
+    apply_lifecycle(workspace, pending_path, transaction)
     pending_path.unlink()
     sync_directory(pending_path.parent)
     return completed, checkpoint_path, archive
@@ -806,6 +1116,12 @@ def main() -> int:
                     if record["kind"] != "wrap_up" or record["payload_digest"] != candidate["payload_digest"]:
                         raise StateError("operation_id is already bound to a different payload")
                     completed, checkpoint_path, archive = materialize_committed_record(workspace, record_path, record)
+                    # A rerun of a committed bundle also finishes any change an
+                    # interruption left unapplied, then clears its own pending file.
+                    apply_lifecycle(workspace, pending_path, completed)
+                    if pending_path.is_file() and read_json(pending_path).get("operation_id") == completed["operation_id"]:
+                        pending_path.unlink()
+                        sync_directory(pending_path.parent)
                     print_receipt(completed, checkpoint_path, archive, reused=True)
                     return 0
 
@@ -826,6 +1142,7 @@ def main() -> int:
                     transaction = existing_pending
                 else:
                     assert_expected_revision(head["revision"], args.expected_revision)
+                    check_new_request(workspace, candidate["bundle"], candidate.get("lifecycle"))
                     transaction = candidate
                     durable_write_json(pending_path, transaction)
                     test_crash_point("wrap_up_after_pending")

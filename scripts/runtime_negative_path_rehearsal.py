@@ -410,6 +410,9 @@ def exercise(root_value: str) -> int:
     write_session = writable_report.get("session_authority", {}).get("session_id")
     if not isinstance(write_session, str) or not write_session:
         raise NegativePathError("write-capable startup did not issue a session identity")
+    # The synthetic controller stands in for a runtime that read its startup packet.
+    from confirm_context import read_all_and_confirm
+    read_all_and_confirm(workspace, write_session)
 
     interrupted_bundle = root / "control" / "interrupted.json"
     write_json(

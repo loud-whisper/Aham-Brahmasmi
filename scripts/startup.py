@@ -4,13 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import sys
 from pathlib import Path
 from typing import Any
 
 from project_state import project_by_id
-from session_authority import issue_session
+from session_authority import authority_path, issue_session, validate_session
 from state_io import StateError, newest_valid_checkpoint, read_json, require_workspace, resolve_workspace
 from state_store import writer_lock
 from third_party import installed_source_status
@@ -19,6 +20,7 @@ from semantic_memory import scope_payload
 import owner_phrases
 import runtime_trust
 from drift_checks import workspace_drift
+from startup_packet import build_startup_packet
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -71,7 +73,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--context-loaded",
         action="store_true",
-        help="Confirm that Quick mode already has verified current context loaded",
+        help="Deprecated and ignored: Quick mode now starts cold and read-only",
+    )
+    parser.add_argument(
+        "--upgrade-from",
+        metavar="SESSION_ID",
+        help="Session ID of this conversation's Quick start; parts it confirmed and that are unchanged need no second reading",
     )
     parser.add_argument("--json", action="store_true", help="Emit the ready report as JSON")
     return parser.parse_args()
@@ -136,13 +143,77 @@ def latest_checkpoint_summary(workspace: Path) -> dict[str, Any] | None:
     if latest is None:
         return None
     path, checkpoint = latest
+    age_days = checkpoint_age_days(checkpoint.get("created_at"))
+    limit = read_json(ROOT / "core" / "lifecycle.json").get("checkpoint", {}).get("stale_after_days")
     return {
         "id": checkpoint.get("id"),
         "created_at": checkpoint.get("created_at"),
         "summary": checkpoint.get("summary"),
         "project": checkpoint.get("project"),
         "file": str(path.relative_to(workspace)),
+        # An old checkpoint is still valid; the flag tells the assistant to confirm
+        # with the owner that its next steps are still wanted before acting on them.
+        "age_days": age_days,
+        "stale": bool(age_days is not None and type(limit) is int and age_days > limit),
     }
+
+
+def current_time() -> datetime.datetime:
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def checkpoint_age_days(created_at: Any) -> int | None:
+    if not isinstance(created_at, str):
+        return None
+    try:
+        created = datetime.datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=datetime.timezone.utc)
+    return max(0, (current_time() - created).days)
+
+
+def upstream_freshness(workspace: Path) -> str:
+    """Compare the workspace with its local upstream-tracking ref, when it has one.
+
+    Nothing is fetched and no network is used. ``verified_local`` means there is no
+    upstream ref to compare with, which is the normal state of a workspace without
+    synchronized Git history.
+    """
+    from wrap_up_outcome import upstream_relation
+
+    relation = upstream_relation(workspace)
+    return "verified_local" if relation == "not_configured" else relation
+
+
+def carried_parts(workspace: Path, runtime: str, upgrade_from: str | None, packet: dict[str, Any]) -> list[int]:
+    """Parts an upgrading conversation already confirmed and that are unchanged.
+
+    Reuse needs proof of continuity: the caller presents the session ID of the
+    still-active earlier session, issued for the same runtime, whose packet is
+    byte-for-byte what it confirmed. A fresh conversation therefore reads everything.
+    """
+    if not upgrade_from:
+        return []
+    path = authority_path(workspace)
+    if not path.is_file():
+        return []
+    try:
+        previous = validate_session(read_json(path), workspace)
+    except StateError:
+        return []
+    context = previous.get("context")
+    if (context is None or previous["session_id"] != upgrade_from or previous["source"] != "startup_controller"
+            or runtime_trust.runtime_name(previous["requested_runtime"]) != runtime
+            or context["source_revision"] != packet["source_revision"]):
+        return []
+    earlier = build_startup_packet(workspace, context["mode"], runtime=runtime)
+    if earlier["packet_sha256"] != context["packet_sha256"]:
+        return []
+    digests = {part["index"]: part["part_sha256"] for part in packet["parts"]}
+    return sorted(part["index"] for part in earlier["parts"]
+                  if part["index"] in context["confirmed_parts"] and digests.get(part["index"]) == part["part_sha256"])
 
 
 def build_report(args: argparse.Namespace) -> dict[str, Any]:
@@ -150,7 +221,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     brain = require_workspace(workspace)
     normalized_runtime = runtime_trust.runtime_name(args.runtime)
     profile, profile_path, exact_profile = load_runtime_profile(args.runtime)
-    drift = workspace_drift(workspace, normalized_runtime)
+    drift = workspace_drift(workspace, normalized_runtime, args.mode)
     if drift["errors"]:
         raise StartupError("; ".join(drift["errors"]))
 
@@ -167,8 +238,6 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     harness = args.harness.strip() if isinstance(args.harness, str) and args.harness.strip() else None
 
     blockers: list[str] = []
-    if args.mode == "quick" and not args.context_loaded:
-        blockers.append("Quick mode requires already-loaded verified context; use Regular mode or confirm --context-loaded.")
 
     pending_path = workspace / "state" / "pending_wrap_up.json"
     pending_wrap_up = pending_path.exists()
@@ -177,11 +246,16 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         state_freshness = "stale_by_mode"
         core_allows_writes = False
     elif args.mode == "quick":
-        state_freshness = "verified_loaded_context" if args.context_loaded else "unverified"
-        core_allows_writes = True
+        # Quick is a light cold start: it verifies the workspace and serves the short
+        # packet, but a save or wrap-up needs the fuller Regular reading first.
+        state_freshness = upstream_freshness(workspace)
+        core_allows_writes = False
     else:
-        state_freshness = "verified_local"
-        core_allows_writes = True
+        state_freshness = upstream_freshness(workspace)
+        # A workspace missing commits that its upstream ref already has would build new
+        # work on old state. Reading stays available; recovery mode is not restricted.
+        missing_upstream_commits = state_freshness in {"behind_upstream_ref", "diverged_from_upstream_ref"}
+        core_allows_writes = not (args.mode == "regular" and missing_upstream_commits)
 
     runtime_reports_write_files = "write_files" in capabilities
 
@@ -209,6 +283,19 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         effective_runtime_write_ready = candidate and self_test["status"] == "passed"
         allowed_operations = (["checkpoint", "recover_checkpoint", "wrap_up", "recover_wrap_up"]
                               if effective_runtime_write_ready else [])
+        # The packet is rebuilt under the writer lock so the session is bound to the
+        # exact content the assistant is about to read.
+        packet = build_startup_packet(workspace, args.mode, runtime=normalized_runtime)
+        confirmed_parts = carried_parts(workspace, normalized_runtime, getattr(args, "upgrade_from", None), packet)
+        complete = len(confirmed_parts) == len(packet["parts"])
+        context = {
+            "mode": packet["mode"],
+            "source_revision": packet["source_revision"],
+            "packet_sha256": packet["packet_sha256"],
+            "status": "confirmed" if complete else "pending",
+            "confirmed_parts": confirmed_parts,
+            "method": "packet_parts" if complete else None,
+        }
         session = issue_session(
             workspace,
             source="startup_controller",
@@ -220,6 +307,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             allowed_operations=allowed_operations,
             project_id=project_id,
             current_revision=head["revision"],
+            context=context,
         )
 
     report = {
@@ -227,6 +315,10 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "version": 1,
         "ready": not blockers,
         "startup_context": drift["startup_context"],
+        "context_status": context["status"],
+        "context_packet": {"mode": packet["mode"], "packet_sha256": packet["packet_sha256"],
+                           "parts": len(packet["parts"]), "confirmed_parts": confirmed_parts,
+                           "read_with": "context --startup --part N", "confirm_with": "confirm-context"},
         "requested_runtime": args.runtime,
         "runtime": profile["id"],
         "harness": harness,
@@ -263,6 +355,8 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "current_revision": session["current_revision"],
             "record": "state/session_authority.json",
         },
+        "upgrade": ({"required_for": ["checkpoint", "wrap_up"], "command": "start --mode regular"}
+                    if args.mode == "quick" else None),
         "blockers": blockers,
     }
     return report
@@ -279,7 +373,14 @@ def print_human(report: dict[str, Any]) -> None:
     print(f"Mode: {report['mode']}")
     print(f"Workspace: {report['workspace_status']}")
     print(f"State freshness: {report['state_freshness']}")
-    capabilities = ", ".join(report["capabilities"]) if report["capabilities"] else "none reported"
+    if report["state_freshness"] in {"behind_upstream_ref", "diverged_from_upstream_ref"}:
+        print("The workspace is missing commits its upstream ref already has. Reading works; "
+              "the owner should bring the workspace up to date before any save or wrap-up.")
+    latest_checkpoint = report.get("latest_checkpoint")
+    if latest_checkpoint and latest_checkpoint.get("stale"):
+        print(f"The latest checkpoint is {latest_checkpoint['age_days']} days old; "
+              "confirm with the owner that its next steps are still wanted.")
+    capabilities =", ".join(report["capabilities"]) if report["capabilities"] else "none reported"
     print(f"Runtime capabilities: {capabilities}")
     print(f"Semantic memory: {report['semantic_memory_status']}")
     scope = report["semantic_memory_scope"]
@@ -295,6 +396,14 @@ def print_human(report: dict[str, Any]) -> None:
         print("Excluded external source: " + json.dumps({"source_id": source_id, "reason": reason}, ensure_ascii=True))
     writes = report["write_policy"]["effective_runtime_write_ready"]
     print(f"Validated runtime writes: {'available' if writes else 'not established'}")
+    packet = report["context_packet"]
+    if report["context_status"] == "confirmed":
+        print("Context: confirmed as read")
+    else:
+        print(f"Context: not yet read. Read parts 1 to {packet['parts']} with {packet['read_with']}, "
+              f"then run {packet['confirm_with']} with every part_sha256.")
+    if report.get("upgrade"):
+        print("Quick is read-only: run " + report["upgrade"]["command"] + " before a save or wrap-up.")
     authority = report["session_authority"]
     print(f"Session authority: {authority['authority']} ({authority['session_id']})")
     if authority["project_id"]:

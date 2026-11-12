@@ -120,6 +120,10 @@ def rehearse_runtime_switch(workspace: Path, checkpoint_id: str) -> str:
         if runtime == "local":
             assert_true(authority.get("authority") == "read_write", "verified local runtime did not receive write authority")
             final_session_id = session_id
+            # The rehearsal stands in for the assistant: it reads the whole startup
+            # packet and confirms it, which later saves and wrap-ups require.
+            from confirm_context import read_all_and_confirm
+            read_all_and_confirm(workspace, session_id)
     assert_true(final_session_id is not None, "release rehearsal did not establish final write-capable session authority")
     return final_session_id
 

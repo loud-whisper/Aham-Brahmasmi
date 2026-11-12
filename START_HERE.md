@@ -93,11 +93,13 @@ Before starting, ask the owner which words they want to use, in plain language, 
 
 > When you sit down to work or finish for the day, you can say a short phrase and I
 > will run the matching routine. The current phrases are "regular start", "quick
-> start" and "wrap up".
+> start", and "wrap up" or "done for the day".
 >
-> - **Regular start** loads and checks your saved Brain before we begin.
-> - **Quick start** skips that reload, but only when your Brain is already loaded
->   in this same session; otherwise I will do a Regular start and tell you.
+> - **Regular start** loads your saved Brain in full: standing notes, facts, open
+>   tasks, lessons and where the last session ended.
+> - **Quick start** loads only your standing notes and facts, for a short question.
+>   It cannot save. If you ask about tasks or earlier work, or we need to save, I
+>   will switch to a Regular start and tell you.
 > - **Wrap up** sorts what we did into facts, unfinished tasks, lessons, project
 >   notes and history, then saves a final recovery point so the next assistant can
 >   continue.

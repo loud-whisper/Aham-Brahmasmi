@@ -14,6 +14,7 @@
 - [ ] Gemini-compatible live runtime path tested.
 - [ ] Codex-compatible live runtime path tested.
 - [ ] At least one local/open-model live runtime path tested.
+- [ ] A live rehearsal covers the startup and wrap-up changes for at least one runtime: cold Quick start, upgrade to Regular, reading confirmation, a wrap-up that closes one task, and recovery after an interruption. Framework tests cover these; no live evidence is recorded yet.
 
 <!-- runtime-evidence-status:start -->
 Runtime evidence source of truth: `evidence/runtime_harness_register.json`.
