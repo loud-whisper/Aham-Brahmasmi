@@ -27,6 +27,20 @@ the folder inventory does not replace that registry.
 
 ## Startup bytes
 
+The paragraphs below describe the fixed sources. Workspace content is counted
+differently since the startup packet was introduced: `BRAIN.json` and `INDEX.json`
+count by file size, and everything else the assistant reads from the workspace counts
+as the rendered startup packet for the mode (`packet/quick` or `packet/regular` in
+`startup_context.sources`). The packet holds the standing files (indexed top-level
+files other than `BRAIN.json`, `INDEX.json` and the three projection files) whole,
+then ledger items cut to fit. The projection files `MEMORY.md`, `TODO.md` and
+`LESSONS.md` are still inventoried but no longer counted, so their growth cannot
+block startup. A Quick start is held to the smaller of `quick_budget_bytes` in
+`core/startup.json` and the workspace budget. Validation now fails only when the fixed
+sources plus the standing files exceed the budget; the message names the standing
+files and their sizes. `startup_context.packet` reports the packet digest, part count
+and what was omitted.
+
 `startup_budget_bytes` is a positive integer. Validation fails when source bytes
 exceed it; equality passes. Startup reports the total, limit, and per-source byte
 counts under `startup_context` before issuing session authority on success.

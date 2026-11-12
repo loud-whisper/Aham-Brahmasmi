@@ -2,6 +2,10 @@
 
 R3 adds a bounded project-scoped context surface and an evidence-derived runtime/harness conformance matrix. These are separate claims: framework tests prove how packets are assembled, while retained live evidence proves only the runtime capabilities actually exercised by those historical runs.
 
+## Startup packet
+
+`scripts/startup_packet.py` builds the packet an assistant reads at startup, from the same ledger replay as the project packet below. It is workspace-wide rather than project-scoped, is split into parts of bounded size, and carries a `part_sha256` per part and a `packet_sha256` overall. The Quick packet holds standing files and active facts; the Regular packet begins with exactly those parts and adds open tasks, lessons, the latest checkpoint and the last session. The session issued by `start` is bound to the packet digest, and `aham.py confirm-context` records that every part digest was presented. That is reported reading coverage, a weaker claim than runtime instruction compliance; see `docs/EVIDENCE_SEMANTICS.md`.
+
 ## Bounded project context
 
 `scripts/context_packet.py` builds one deterministic JSON packet for a stable project ID from authoritative workspace state.

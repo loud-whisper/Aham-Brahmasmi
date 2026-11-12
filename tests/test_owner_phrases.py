@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from state_io import StateError
 from state_store import list_operation_records
 
-DEFAULTS = {"regular_start": ["regular start"], "quick_start": ["quick start"], "wrap_up": ["wrap up"]}
+DEFAULTS = {"regular_start": ["regular start"], "quick_start": ["quick start"], "wrap_up": ["wrap up", "done for the day"]}
 
 
 class OwnerPhraseTests(unittest.TestCase):

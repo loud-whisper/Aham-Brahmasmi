@@ -14,7 +14,7 @@ from state_store import advance_store_head, commit_operation, digest_json, list_
 KIND = "phrase_control"
 CONFIRMATION = "set-phrases"
 PROCEDURES = ("regular_start", "quick_start", "wrap_up")
-DEFAULTS = {"regular_start": ("regular start",), "quick_start": ("quick start",), "wrap_up": ("wrap up",)}
+DEFAULTS = {"regular_start": ("regular start",), "quick_start": ("quick start",), "wrap_up": ("wrap up", "done for the day")}
 MAX_PER_PROCEDURE = 5
 MAX_LENGTH = 40
 
