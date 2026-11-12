@@ -16,6 +16,12 @@
 - **Changed:** the chat wrap-up response is version 2 and must echo `context_packet_sha256` and
   `context_limit_bytes` from the exported template. A version 1 response is refused; export fresh
   context and ask again.
+- Wrap-up bundles may carry an `inventory`: every piece of work in the session with an evidence
+  label, its evidence, a next action and the entries it routed. With an inventory, completed work
+  in the checkpoint is taken from the items marked `verified`. Bundles without one work as before.
+- **Changed:** a new wrap-up refuses an entry over its size cap (`wrap_up.item_caps_bytes` in
+  `core/lifecycle.json`) and an entry that repeats an active fact or open task of the same projects,
+  naming the existing ID. Pending and committed transactions replay without these checks.
 
 ## 0.1.0-preview.1
 

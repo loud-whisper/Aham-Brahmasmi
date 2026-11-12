@@ -34,6 +34,13 @@
     "transaction_file": "state/pending_wrap_up.json",
     "archive_directory": "state/wrapups/",
     "progress_field": "progress",
+    "item_caps_bytes": {
+      "durable_facts": 600,
+      "unfinished_work": 600,
+      "reusable_lessons": 400,
+      "history": 2500
+    },
+    "inventory_evidence_statuses": ["verified", "owner_reported", "inferred", "unverified", "not_done"],
     "rules": [
       "Write a pending transaction before changing routed state.",
       "Record the current replay-safe wrap-up step before performing it so a failure can identify the exact remaining stage.",
