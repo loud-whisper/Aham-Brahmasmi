@@ -75,6 +75,11 @@
       ]
     }
   ],
+  "mode_sources": {
+    "quick": ["standing_files", "active_facts"],
+    "regular": ["standing_files", "active_facts", "open_tasks", "lessons", "latest_checkpoint", "last_session"]
+  },
+  "quick_budget_bytes": 24576,
   "mode_behavior": {
     "quick": "Use only already-loaded verified context. The executable requires an explicit confirmation that current context is loaded.",
     "regular": "Load or verify current durable workspace state before task work begins.",

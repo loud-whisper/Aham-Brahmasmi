@@ -122,7 +122,11 @@ class WorkspaceDriftTests(unittest.TestCase):
             self.index["startup_budget_bytes"] = other_bytes + len(json.dumps(self.index).encode("utf-8"))
         self.save_index()
         self.assertEqual(self.run_tool().returncode, 0)
+        # Projection files are no longer startup sources; a standing file still counts.
         with (self.workspace / "MEMORY.md").open("a", encoding="utf-8") as output:
+            output.write("é")
+        self.assertEqual(self.run_tool().returncode, 0)
+        with (self.workspace / "README.md").open("a", encoding="utf-8") as output:
             output.write("é")
         self.assert_refused("startup context exceeds byte budget")
         self.index["startup_budget_bytes"] += 1

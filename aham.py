@@ -92,6 +92,9 @@ def main(argv=None) -> int:
         return 0
     command, *rest = arguments
     try:
+        if command == "context" and "--startup" in rest:
+            rest.remove("--startup")
+            return delegate("startup_packet.py", rest)
         if command in {"context", "import-wrapup"}:
             return chat_command(command, rest)
         if command == "skills":

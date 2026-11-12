@@ -46,11 +46,12 @@ def load_index(workspace):
     return index
 
 
-def startup_sources(workspace, index, runtime):
-    """Count the declared source set, including generated bridge instructions.
+def fixed_startup_sources(workspace, index, runtime):
+    """Sizes of the startup sources that do not come from the ledger.
 
-    Source bytes are counted without truncating context or reading integrations.
-    Runtime conversation/history and diagnostic report output are separate budgets.
+    These are the framework contracts, the runtime profile, the generated bridge
+    instructions and the workspace identity and inventory files. Standing files,
+    facts, tasks and lessons are counted through the startup packet instead.
     """
     from runtime_bridge import load_contract, render_bridge, runtime_native_block
 
@@ -66,9 +67,9 @@ def startup_sources(workspace, index, runtime):
         if not path.is_file():
             raise StateError(f"missing startup source: {relative}")
         sizes["framework/" + relative] = path.stat().st_size
-    for relative in index["files"]:
+    for relative in ("BRAIN.json", "INDEX.json"):
         path = require_managed_path(workspace, relative, label="indexed startup source")
-        if path.is_file():
+        if relative in index["files"] and path.is_file():
             sizes["workspace/" + relative] = path.stat().st_size
     selected = profiles[profile]
     sizes["generated/.aham/runtime.md"] = len(render_bridge(runtime).replace("\n", os.linesep).encode("utf-8"))
@@ -77,12 +78,36 @@ def startup_sources(workspace, index, runtime):
         from runtime_bridge import update_managed_block
         sizes["generated/native-instruction-block"] = len(
             update_managed_block("", native).replace("\n", os.linesep).encode("utf-8"))
-    total = sum(sizes.values())
-    return {"total_bytes": total, "budget_bytes": index["startup_budget_bytes"],
-            "sources": sizes, "encoding": "UTF-8", "scope": "declared_startup_sources"}
+    return sizes
 
 
-def workspace_drift(workspace: Path, runtime="unknown"):
+def startup_sources(workspace, index, runtime, mode="regular"):
+    """Count what one startup in this mode loads.
+
+    The fixed sources are counted by file size. Everything read from the workspace
+    beyond its identity and inventory is counted as the rendered startup packet for
+    the mode, which is cut to fit, so the append-only Markdown projections no longer
+    count. Runtime conversation and diagnostic report output are separate budgets.
+    """
+    from startup_packet import build_startup_packet, mode_contract, rendered_bytes, source_mode
+
+    sizes = fixed_startup_sources(workspace, index, runtime)
+    selected = source_mode(mode)
+    budget = index["startup_budget_bytes"]
+    if selected == "quick":
+        budget = min(budget, mode_contract()["quick_budget_bytes"])
+    fixed = sum(sizes.values())
+    if fixed > budget:
+        raise StateError(f"startup context exceeds byte budget: {fixed} > {budget}")
+    packet = build_startup_packet(workspace, selected, runtime=runtime)
+    sizes[f"packet/{selected}"] = rendered_bytes(packet)
+    return {"total_bytes": sum(sizes.values()), "budget_bytes": budget, "mode": selected,
+            "sources": sizes, "encoding": "UTF-8", "scope": "declared_startup_sources",
+            "packet": {"packet_sha256": packet["packet_sha256"], "parts": len(packet["parts"]),
+                       "truncated": packet["truncated"], "omitted": packet["omitted"]}}
+
+
+def workspace_drift(workspace: Path, runtime="unknown", mode="regular"):
     workspace = workspace.resolve()
     errors = []
     accounting = None
@@ -117,7 +142,7 @@ def workspace_drift(workspace: Path, runtime="unknown"):
                     errors.append(f"missing project record: projects/{folder.name}/PROJECT.md")
             for name in sorted(set(index["projects"]) - folders):
                 errors.append(f"missing listed project folder: {name}")
-        accounting = startup_sources(workspace, index, runtime)
+        accounting = startup_sources(workspace, index, runtime, mode)
         if accounting["total_bytes"] > accounting["budget_bytes"]:
             errors.append(f"startup context exceeds byte budget: {accounting['total_bytes']} > {accounting['budget_bytes']}")
     except (StateError, OSError, ValueError) as exc:

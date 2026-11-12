@@ -150,7 +150,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     brain = require_workspace(workspace)
     normalized_runtime = runtime_trust.runtime_name(args.runtime)
     profile, profile_path, exact_profile = load_runtime_profile(args.runtime)
-    drift = workspace_drift(workspace, normalized_runtime)
+    drift = workspace_drift(workspace, normalized_runtime, args.mode)
     if drift["errors"]:
         raise StartupError("; ".join(drift["errors"]))
 
