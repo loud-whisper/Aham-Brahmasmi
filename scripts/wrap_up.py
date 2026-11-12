@@ -63,6 +63,7 @@ def _peek_option(name: str) -> str | None:
 _PRESENTED_SESSION_ID = _extract_option("--session-id")
 _PRESENTED_PROJECT_ID = _extract_option("--project-id")
 _JSON_OUTPUT = _extract_flag("--json")
+_SNAPSHOT_REQUESTED = _extract_flag("--snapshot")
 
 core.REPOSITORY_FIELDS = set(core.REPOSITORY_FIELDS) | {
     "identity", "root", "git_common_dir", "remote_url", "tracked_dirty", "untracked_present", "status_digest"
@@ -278,11 +279,17 @@ def _operation_id_from_output(output: str) -> str:
     raise StateError("successful wrap-up did not report its operation identity")
 
 
-def _verified_structured_receipt(workspace: Path, operation_id: str) -> dict[str, Any]:
+def _verified_structured_receipt(workspace: Path, operation_id: str, *, take_snapshot: bool = False) -> dict[str, Any]:
     record = operation_record(workspace, operation_id, expected_kind="wrap_up")
     completed = core.completed_from_record(record)
     core.verify_completed_state(workspace, completed)
-    return receipt_from_record(workspace, record)
+    receipt = receipt_from_record(workspace, record)
+    # The receipt above is verified before any optional Git step. A snapshot is taken
+    # only on request and its failure is reported in the summary, never raised.
+    import wrap_up_outcome
+    snapshot = wrap_up_outcome.take_snapshot(workspace, operation_id) if take_snapshot else None
+    receipt["summary"] = wrap_up_outcome.wrap_up_summary(workspace, record, snapshot)
+    return receipt
 
 
 def _structured_status_receipt(workspace: Path, operation_id: str) -> dict[str, Any]:
@@ -296,11 +303,14 @@ def _structured_status_receipt(workspace: Path, operation_id: str) -> dict[str, 
         core.validate_transaction(pending, expected_status="pending")
         if pending.get("operation_id") != operation_id:
             raise committed_error
-        return pending_receipt(
+        receipt = pending_receipt(
             "wrap_up",
             pending,
             recovery_action=recovery_command("wrap-up"),
         )
+        import wrap_up_outcome
+        receipt["summary"] = wrap_up_outcome.pending_summary(receipt["recovery_action"])
+        return receipt
 
 
 def _emit_receipt(receipt: dict[str, Any]) -> None:
@@ -337,7 +347,8 @@ def _run() -> int:
         if captured.getvalue():
             print("\nwrapper options:\n  --session-id ID   session from aham.py start; required for writes\n"
                   "  --project-id ID   project scope checked against the session's authority\n"
-                  "  --json            print the receipt as JSON")
+                  "  --json            print the receipt as JSON\n"
+                  "  --snapshot        also commit a local Git snapshot when Git history is set up; never pushes")
         raise
     if result != 0:
         sys.stdout.write(captured.getvalue())
@@ -347,7 +358,8 @@ def _run() -> int:
         return 1
     try:
         operation_id = _operation_id_from_output(captured.getvalue())
-        receipt = _verified_structured_receipt(resolve_workspace(workspace_arg), operation_id)
+        receipt = _verified_structured_receipt(resolve_workspace(workspace_arg), operation_id,
+                                               take_snapshot=_SNAPSHOT_REQUESTED)
         _emit_receipt(receipt)
         if not _JSON_OUTPUT and "EXISTING RECEIPT REUSED" in captured.getvalue():
             print("EXISTING RECEIPT REUSED")

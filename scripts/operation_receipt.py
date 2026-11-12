@@ -413,3 +413,7 @@ def print_text_receipt(receipt: dict[str, Any]) -> None:
     print("Warnings: " + (", ".join(warnings) if warnings else "none"))
     recovery = receipt.get("recovery_action")
     print("Recovery action: " + (str(recovery) if recovery else "none"))
+    if isinstance(receipt.get("summary"), dict):
+        from wrap_up_outcome import summary_lines
+        for line in summary_lines(receipt["summary"]):
+            print(line)

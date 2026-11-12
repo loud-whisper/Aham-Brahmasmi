@@ -14,6 +14,7 @@
       "status"
     ],
     "status": "durable",
+    "stale_after_days": 45,
     "rules": [
       "Create a checkpoint after a meaningful completed milestone and before a risky transition.",
       "Record only verified completed work as completed.",

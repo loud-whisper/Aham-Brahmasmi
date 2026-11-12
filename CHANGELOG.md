@@ -26,6 +26,13 @@
   `fact_supersede` and `fact_retract`, each naming the inventory item that justifies it. A task is
   completed only on work marked `verified`. An interrupted wrap-up applies each change exactly once
   on recovery. `aham.py tasks` and `aham.py facts` list records and apply single changes.
+- Wrap-up receipts gain a `summary`: outcome, routed counts, tasks completed and still open, record
+  changes, Git snapshot status, whether the snapshot is in the local upstream ref, and the next action.
+  `wrap_up.py --snapshot` takes a local Git snapshot after the wrap-up commits. Nothing is pushed.
+- Startup `state_freshness` compares the workspace with its local upstream-tracking ref without
+  fetching. **Changed:** a Regular start on a workspace that is behind or diverged from that ref
+  allows reading but no save or wrap-up. `latest_checkpoint` reports `age_days` and `stale`
+  (`checkpoint.stale_after_days` in `core/lifecycle.json`).
 
 ## 0.1.0-preview.1
 

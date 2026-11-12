@@ -24,6 +24,12 @@ Dirty tracked files, untracked files and unsaved editor buffers are outside this
 
 **Replicated backup** means a separate copy was successfully written to another storage location or service and verified there. A local checkpoint or wrap-up never implies replicated backup.
 
+## Local snapshot and upstream ref
+
+A wrap-up receipt's `summary.snapshot` says whether the durable workspace state is in a local Git commit. `committed` is local history only.
+
+`summary.replication` and the startup field `state_freshness` compare that history with the upstream-tracking ref stored on this machine. `contained_in_upstream_ref` and `matches_upstream_ref` describe that stored ref as of the owner's last fetch or push. They are not proof of the remote's current state and are not a replicated backup claim. Aham never fetches, never pushes and never contacts the remote to produce them. Without an upstream ref the values are `not_configured` and `verified_local`.
+
 ## Runtime instruction compliance
 
 **Runtime instruction compliance** means evidence shows that a particular runtime or harness followed the required lifecycle instructions in the tested session. A successful checkpoint or wrap-up command proves durable state behavior, not that the runtime followed every instruction around it.

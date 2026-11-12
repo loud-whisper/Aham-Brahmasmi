@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import sys
 from pathlib import Path
@@ -142,13 +143,48 @@ def latest_checkpoint_summary(workspace: Path) -> dict[str, Any] | None:
     if latest is None:
         return None
     path, checkpoint = latest
+    age_days = checkpoint_age_days(checkpoint.get("created_at"))
+    limit = read_json(ROOT / "core" / "lifecycle.json").get("checkpoint", {}).get("stale_after_days")
     return {
         "id": checkpoint.get("id"),
         "created_at": checkpoint.get("created_at"),
         "summary": checkpoint.get("summary"),
         "project": checkpoint.get("project"),
         "file": str(path.relative_to(workspace)),
+        # An old checkpoint is still valid; the flag tells the assistant to confirm
+        # with the owner that its next steps are still wanted before acting on them.
+        "age_days": age_days,
+        "stale": bool(age_days is not None and type(limit) is int and age_days > limit),
     }
+
+
+def current_time() -> datetime.datetime:
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def checkpoint_age_days(created_at: Any) -> int | None:
+    if not isinstance(created_at, str):
+        return None
+    try:
+        created = datetime.datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=datetime.timezone.utc)
+    return max(0, (current_time() - created).days)
+
+
+def upstream_freshness(workspace: Path) -> str:
+    """Compare the workspace with its local upstream-tracking ref, when it has one.
+
+    Nothing is fetched and no network is used. ``verified_local`` means there is no
+    upstream ref to compare with, which is the normal state of a workspace without
+    synchronized Git history.
+    """
+    from wrap_up_outcome import upstream_relation
+
+    relation = upstream_relation(workspace)
+    return "verified_local" if relation == "not_configured" else relation
 
 
 def carried_parts(workspace: Path, runtime: str, upgrade_from: str | None, packet: dict[str, Any]) -> list[int]:
@@ -212,11 +248,14 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     elif args.mode == "quick":
         # Quick is a light cold start: it verifies the workspace and serves the short
         # packet, but a save or wrap-up needs the fuller Regular reading first.
-        state_freshness = "verified_local"
+        state_freshness = upstream_freshness(workspace)
         core_allows_writes = False
     else:
-        state_freshness = "verified_local"
-        core_allows_writes = True
+        state_freshness = upstream_freshness(workspace)
+        # A workspace missing commits that its upstream ref already has would build new
+        # work on old state. Reading stays available; recovery mode is not restricted.
+        missing_upstream_commits = state_freshness in {"behind_upstream_ref", "diverged_from_upstream_ref"}
+        core_allows_writes = not (args.mode == "regular" and missing_upstream_commits)
 
     runtime_reports_write_files = "write_files" in capabilities
 
@@ -334,7 +373,14 @@ def print_human(report: dict[str, Any]) -> None:
     print(f"Mode: {report['mode']}")
     print(f"Workspace: {report['workspace_status']}")
     print(f"State freshness: {report['state_freshness']}")
-    capabilities = ", ".join(report["capabilities"]) if report["capabilities"] else "none reported"
+    if report["state_freshness"] in {"behind_upstream_ref", "diverged_from_upstream_ref"}:
+        print("The workspace is missing commits its upstream ref already has. Reading works; "
+              "the owner should bring the workspace up to date before any save or wrap-up.")
+    latest_checkpoint = report.get("latest_checkpoint")
+    if latest_checkpoint and latest_checkpoint.get("stale"):
+        print(f"The latest checkpoint is {latest_checkpoint['age_days']} days old; "
+              "confirm with the owner that its next steps are still wanted.")
+    capabilities =", ".join(report["capabilities"]) if report["capabilities"] else "none reported"
     print(f"Runtime capabilities: {capabilities}")
     print(f"Semantic memory: {report['semantic_memory_status']}")
     scope = report["semantic_memory_scope"]
