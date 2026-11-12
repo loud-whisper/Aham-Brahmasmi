@@ -11,7 +11,8 @@
   `core/brain.json` sets `modes.quick.allow_validated_writes` to false.
 - **Changed:** a session issued by `start` may save or wrap up only after `aham.py confirm-context`
   reports `CONTEXT CONFIRMED`. Read the packet with `context --startup --part N` and present each
-  `part_sha256`. Recovery commands and owner controls are unaffected. `start --mode regular
+  `part_sha256`. The same applies to other writes made with that session, such as skill
+  preferences. Recovery commands and owner controls are unaffected. `start --mode regular
   --upgrade-from SESSION_ID` keeps the parts a Quick session already confirmed.
 - **Changed:** the chat wrap-up response is version 2 and must echo `context_packet_sha256` and
   `context_limit_bytes` from the exported template. A version 1 response is refused; export fresh

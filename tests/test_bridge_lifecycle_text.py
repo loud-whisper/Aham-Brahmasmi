@@ -60,6 +60,22 @@ class BridgeLifecycleTextTests(unittest.TestCase):
                     # Leave room for the owner's own standing files and facts.
                     self.assertLessEqual(accounting["total_bytes"], ceiling - 4096)
 
+    def test_compact_report_carries_every_field_the_bridge_names(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            workspace = Path(temp) / "workspace"
+            subprocess.run([sys.executable, str(SCRIPTS / "setup_workspace.py"), "--workspace", str(workspace)],
+                           capture_output=True, text=True, check=True)
+            result = subprocess.run([sys.executable, str(ROOT / "aham.py"), "start", "--workspace", str(workspace),
+                                     "--runtime", "unknown", "--mode", "quick", "--compact"],
+                                    capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            report = json.loads(result.stdout)
+            for field in ("state_freshness", "context_status", "context_packet", "upgrade", "owner_phrases",
+                          "latest_checkpoint", "session_authority"):
+                self.assertIn(field, report)
+            self.assertEqual(report["state_freshness"], "verified_local")
+            self.assertLessEqual(len(result.stdout.encode("utf-8")), 8192)
+
     def test_done_for_the_day_is_a_default_wrap_up_phrase(self) -> None:
         import owner_phrases
         self.assertEqual(owner_phrases.DEFAULTS["wrap_up"], ("wrap up", "done for the day"))
