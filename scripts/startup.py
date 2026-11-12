@@ -71,7 +71,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--context-loaded",
         action="store_true",
-        help="Confirm that Quick mode already has verified current context loaded",
+        help="Deprecated and ignored: Quick mode now starts cold and read-only",
     )
     parser.add_argument("--json", action="store_true", help="Emit the ready report as JSON")
     return parser.parse_args()
@@ -167,8 +167,6 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     harness = args.harness.strip() if isinstance(args.harness, str) and args.harness.strip() else None
 
     blockers: list[str] = []
-    if args.mode == "quick" and not args.context_loaded:
-        blockers.append("Quick mode requires already-loaded verified context; use Regular mode or confirm --context-loaded.")
 
     pending_path = workspace / "state" / "pending_wrap_up.json"
     pending_wrap_up = pending_path.exists()
@@ -177,8 +175,10 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         state_freshness = "stale_by_mode"
         core_allows_writes = False
     elif args.mode == "quick":
-        state_freshness = "verified_loaded_context" if args.context_loaded else "unverified"
-        core_allows_writes = True
+        # Quick is a light cold start: it verifies the workspace and serves the short
+        # packet, but a save or wrap-up needs the fuller Regular reading first.
+        state_freshness = "verified_local"
+        core_allows_writes = False
     else:
         state_freshness = "verified_local"
         core_allows_writes = True
@@ -263,6 +263,8 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "current_revision": session["current_revision"],
             "record": "state/session_authority.json",
         },
+        "upgrade": ({"required_for": ["checkpoint", "wrap_up"], "command": "start --mode regular"}
+                    if args.mode == "quick" else None),
         "blockers": blockers,
     }
     return report
@@ -295,6 +297,8 @@ def print_human(report: dict[str, Any]) -> None:
         print("Excluded external source: " + json.dumps({"source_id": source_id, "reason": reason}, ensure_ascii=True))
     writes = report["write_policy"]["effective_runtime_write_ready"]
     print(f"Validated runtime writes: {'available' if writes else 'not established'}")
+    if report.get("upgrade"):
+        print("Quick is read-only: run " + report["upgrade"]["command"] + " before a save or wrap-up.")
     authority = report["session_authority"]
     print(f"Session authority: {authority['authority']} ({authority['session_id']})")
     if authority["project_id"]:

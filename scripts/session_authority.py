@@ -182,6 +182,10 @@ def require_operation_authority(
             raise StateError("presented session ID does not match the active session authority")
 
     if operation not in session["allowed_operations"]:
+        if session["mode"] == "quick":
+            raise StateError(
+                f"Quick sessions are read-only and cannot run '{operation}'; "
+                "run start --mode regular for a new session ID, then retry")
         raise StateError(
             f"session authority denies operation '{operation}' in mode '{session['mode']}' for runtime '{session['runtime']}'"
         )

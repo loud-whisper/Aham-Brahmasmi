@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "phases": [
     {
       "id": "load_core",
@@ -71,6 +71,7 @@
         "write_policy",
         "writer_self_test",
         "owner_phrases",
+        "upgrade",
         "blockers"
       ]
     }
@@ -80,8 +81,17 @@
     "regular": ["standing_files", "active_facts", "open_tasks", "lessons", "latest_checkpoint", "last_session"]
   },
   "quick_budget_bytes": 24576,
+  "mode_selection": {
+    "default_when_no_phrase": "quick",
+    "upgrade_to_regular_when": [
+      "owner asks to resume earlier work",
+      "owner asks about tasks, earlier sessions or lessons",
+      "a checkpoint or wrap-up is about to run",
+      "a pending recovery exists"
+    ]
+  },
   "mode_behavior": {
-    "quick": "Use only already-loaded verified context. The executable requires an explicit confirmation that current context is loaded.",
+    "quick": "Start cold and read-only with the standing files and active facts. Saves and wrap-ups require an upgrade to Regular.",
     "regular": "Load or verify current durable workspace state before task work begins.",
     "degraded_offline": "Mark state stale, explain what cannot be verified, and avoid durable writes.",
     "wrap_up": "Persist a replay-safe transaction, route durable changes according to core/state_routes.json, create a final checkpoint, and verify before completion."
