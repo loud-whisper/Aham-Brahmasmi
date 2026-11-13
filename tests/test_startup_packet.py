@@ -135,7 +135,8 @@ class StartupPacketTests(unittest.TestCase):
 
     def test_standing_file_longer_than_a_part_is_delivered_whole(self) -> None:
         text = "".join(f"line {n} \u00e9\n" for n in range(300))
-        (self.workspace / "README.md").write_text(text, encoding="utf-8")
+        # Bytes, so the file on disk has the same line endings on every platform.
+        (self.workspace / "README.md").write_bytes(text.encode("utf-8"))
         packet = self.build("quick", max_part_bytes=1024)
         chunks = [item for item in self.items(packet, "standing_files") if item["file"] == "README.md"]
         self.assertGreater(len(chunks), 1)
