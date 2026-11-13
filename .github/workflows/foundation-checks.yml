@@ -36,6 +36,27 @@ jobs:
       - name: Run foundation verification
         run: python3 tests/verify_foundation.py
 
+      - name: TEMPORARY sandbox privilege-drop diagnostics
+        continue-on-error: true
+        run: |
+          set +e
+          U=$(id -u); G=$(id -g)
+          echo "== versions =="; cat /etc/os-release | head -4; uname -r; bwrap --version; setpriv --version
+          echo "== apparmor =="; sysctl kernel.apparmor_restrict_unprivileged_userns kernel.unprivileged_userns_clone 2>&1
+          sudo aa-status 2>/dev/null | grep -iE 'bwrap|profiles are loaded|setpriv' ; ls /etc/apparmor.d | grep -iE 'bwrap|setpriv'
+          B="sudo --non-interactive bwrap --die-with-parent --new-session --unshare-pid --unshare-ipc --unshare-uts --unshare-cgroup-try --ro-bind / / --proc /proc --dev /dev --tmpfs /tmp"
+          echo "== T1 inside bwrap as root =="; $B -- sh -c 'id; grep -E "^(Cap|NoNewPrivs|Seccomp)" /proc/self/status; cat /proc/self/attr/current; echo; cat /proc/self/uid_map'
+          echo "== T2 original setpriv call =="; $B -- setpriv --reuid=$U --regid=$G --clear-groups --inh-caps=-all --bounding-set=-all --no-new-privs -- id; echo "rc=$?"
+          echo "== T3 with --cap-add ALL =="; $B --cap-add ALL -- setpriv --reuid=$U --regid=$G --clear-groups --inh-caps=-all --bounding-set=-all --no-new-privs -- id; echo "rc=$?"
+          echo "== T4 only reuid/regid/clear-groups =="; $B -- setpriv --reuid=$U --regid=$G --clear-groups -- id; echo "rc=$?"
+          echo "== T5 without bounding-set =="; $B -- setpriv --reuid=$U --regid=$G --clear-groups --inh-caps=-all --no-new-privs -- id; echo "rc=$?"
+          echo "== T6 without no-new-privs =="; $B -- setpriv --reuid=$U --regid=$G --clear-groups --inh-caps=-all --bounding-set=-all -- id; echo "rc=$?"
+          echo "== T7 setpriv outside bwrap =="; sudo setpriv --reuid=$U --regid=$G --clear-groups --inh-caps=-all --bounding-set=-all --no-new-privs -- id; echo "rc=$?"
+          echo "== T8 setpriv -d inside bwrap =="; $B -- setpriv -d
+          echo "== T9 strace =="; command -v strace && $B -- strace -f -e trace=setresuid,setresgid,setgroups,prctl,capset setpriv --reuid=$U --regid=$G --clear-groups --inh-caps=-all --bounding-set=-all --no-new-privs -- id 2>&1 | tail -30
+          echo "== kernel log =="; sudo dmesg 2>/dev/null | grep -iE 'apparmor|audit' | tail -15
+          exit 0
+
       - name: Run unit tests
         env:
           AHAM_TEST_BWRAP_SUDO_HELPER: "1"
