@@ -45,16 +45,15 @@ jobs:
           echo "== apparmor =="; sysctl kernel.apparmor_restrict_unprivileged_userns kernel.unprivileged_userns_clone 2>&1
           sudo aa-status 2>/dev/null | grep -iE 'bwrap|profiles are loaded|setpriv' ; ls /etc/apparmor.d | grep -iE 'bwrap|setpriv'
           B="sudo --non-interactive bwrap --die-with-parent --new-session --unshare-pid --unshare-ipc --unshare-uts --unshare-cgroup-try --ro-bind / / --proc /proc --dev /dev --tmpfs /tmp"
-          echo "== T1 inside bwrap as root =="; $B -- sh -c 'id; grep -E "^(Cap|NoNewPrivs|Seccomp)" /proc/self/status; cat /proc/self/attr/current; echo; cat /proc/self/uid_map'
-          echo "== T2 original setpriv call =="; $B -- setpriv --reuid=$U --regid=$G --clear-groups --inh-caps=-all --bounding-set=-all --no-new-privs -- id; echo "rc=$?"
-          echo "== T3 with --cap-add ALL =="; $B --cap-add ALL -- setpriv --reuid=$U --regid=$G --clear-groups --inh-caps=-all --bounding-set=-all --no-new-privs -- id; echo "rc=$?"
-          echo "== T4 only reuid/regid/clear-groups =="; $B -- setpriv --reuid=$U --regid=$G --clear-groups -- id; echo "rc=$?"
-          echo "== T5 without bounding-set =="; $B -- setpriv --reuid=$U --regid=$G --clear-groups --inh-caps=-all --no-new-privs -- id; echo "rc=$?"
-          echo "== T6 without no-new-privs =="; $B -- setpriv --reuid=$U --regid=$G --clear-groups --inh-caps=-all --bounding-set=-all -- id; echo "rc=$?"
-          echo "== T7 setpriv outside bwrap =="; sudo setpriv --reuid=$U --regid=$G --clear-groups --inh-caps=-all --bounding-set=-all --no-new-privs -- id; echo "rc=$?"
-          echo "== T8 setpriv -d inside bwrap =="; $B -- setpriv -d
-          echo "== T9 strace =="; command -v strace && $B -- strace -f -e trace=setresuid,setresgid,setgroups,prctl,capset setpriv --reuid=$U --regid=$G --clear-groups --inh-caps=-all --bounding-set=-all --no-new-privs -- id 2>&1 | tail -30
-          echo "== kernel log =="; sudo dmesg 2>/dev/null | grep -iE 'apparmor|audit' | tail -15
+          echo "== T10 same call through a copy of bwrap outside the AppArmor profile path =="
+          cp /usr/bin/bwrap /tmp/bwrap-copy
+          sudo --non-interactive /tmp/bwrap-copy --die-with-parent --new-session --unshare-pid --unshare-ipc --unshare-uts --unshare-cgroup-try --ro-bind / / --proc /proc --dev /dev --tmpfs /tmp -- sh -c "cat /proc/self/attr/current; echo; setpriv --reuid=$U --regid=$G --clear-groups --inh-caps=-all --bounding-set=-all --no-new-privs -- id"; echo "rc=$?"
+          echo "== T11 unprivileged bwrap, no sudo =="
+          bwrap --die-with-parent --new-session --unshare-all --ro-bind / / --proc /proc --dev /dev --tmpfs /tmp -- sh -c 'id; cat /proc/self/attr/current; echo; grep -E "^Cap(Prm|Eff|Bnd)" /proc/self/status'; echo "rc=$?"
+          echo "== T12 unprivileged bwrap with network kept =="
+          bwrap --die-with-parent --new-session --unshare-all --share-net --ro-bind / / --proc /proc --dev /dev --tmpfs /tmp -- id; echo "rc=$?"
+          echo "== T13 sandbox test files without the sudo helper =="
+          python3 -m unittest -v tests.test_m5_rehearsal_sandbox tests.test_m5_live_rehearsal_isolation tests.test_astra_m6_live_evidence_emission tests.test_runtime_negative_path_rehearsal tests.test_runtime_switch_recovery tests.test_runtime_switch_handoff_containment 2>&1 | grep -vE ' \.\.\. ok$' | tail -40
           exit 0
 
       - name: Run unit tests
