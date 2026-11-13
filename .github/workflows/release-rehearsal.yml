@@ -37,7 +37,7 @@ jobs:
 
       - name: Run unit tests
         env:
-          AHAM_TEST_BWRAP_SUDO_HELPER: "1"
+          AHAM_TEST_BWRAP_SUDO_HELPER: "auto"
         run: python3 -m unittest discover -s tests -p 'test_*.py'
 
       - name: Run isolated offline release rehearsal

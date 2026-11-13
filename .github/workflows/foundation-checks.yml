@@ -38,7 +38,7 @@ jobs:
 
       - name: Run unit tests
         env:
-          AHAM_TEST_BWRAP_SUDO_HELPER: "1"
+          AHAM_TEST_BWRAP_SUDO_HELPER: "auto"
         run: python3 -m unittest discover -s tests -p 'test_*.py'
 
   portability-matrix:
@@ -83,7 +83,7 @@ jobs:
     if: github.event_name == 'pull_request' && !github.event.pull_request.draft
     name: windows-native-core-py3.14
     runs-on: windows-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       PYTHONUTF8: "1"
     steps:

@@ -39,7 +39,7 @@ class ClassifierTests(unittest.TestCase):
         for command in ("rm -- small.txt", "mv small.txt other.txt", "cp small.txt copy.txt", "chmod 600 small.txt", "truncate -s 0 small.txt"):
             with self.subTest(command=command):
                 result = self.classify(command)
-                self.assertEqual(result.tier, "ask")
+                self.assertEqual(result.tier, "ask", result.reason)
                 self.assertTrue(result.effect)
                 self.assertTrue(result.undo)
                 self.assertGreaterEqual(result.bytes, 3)

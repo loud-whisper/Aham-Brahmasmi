@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+from sandbox_helper import namespace_helper_args
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,12 +17,6 @@ SWITCH_TOOL = ROOT / "scripts" / "runtime_switch_rehearsal.py"
 EVIDENCE_TOOL = ROOT / "scripts" / "runtime_evidence.py"
 STARTUP = ROOT / "scripts" / "startup.py"
 WRAP_UP = ROOT / "scripts" / "wrap_up.py"
-
-
-def namespace_helper_args() -> list[str]:
-    if os.environ.get("AHAM_TEST_BWRAP_SUDO_HELPER") == "1":
-        return ["--sudo-namespace-helper"]
-    return []
 
 
 class RuntimeSwitchRecoveryRegressionTests(unittest.TestCase):

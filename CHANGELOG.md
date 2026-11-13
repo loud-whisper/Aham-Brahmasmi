@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Fixed:** sandbox tests failed on Ubuntu 26.04 hosted runners, where an AppArmor profile removes
+  capabilities inside Bubblewrap so the sudo namespace helper cannot drop privileges. CI now sets
+  `AHAM_TEST_BWRAP_SUDO_HELPER` to `auto`: tests use the ordinary unprivileged path when the host allows
+  it and the helper only otherwise. The sandbox itself is unchanged.
 - Startup reads a bounded packet replayed from the operation ledger (`aham.py context --startup`). The
   append-only `MEMORY.md`, `TODO.md` and `LESSONS.md` projections no longer count toward
   `startup_budget_bytes`, so completed tasks and replaced facts leave startup.

@@ -35,7 +35,7 @@ The default sandbox:
 
 `--deny-network` can additionally isolate networking when the selected runtime does not need network access. Some restricted Linux hosts cannot create that additional network namespace.
 
-GitHub-hosted CI blocks the ordinary unprivileged namespace path used on normal Linux systems. The test workflow therefore uses `--sudo-namespace-helper`: `sudo` is used only to construct the namespace, then `setpriv` drops to the invoking UID/GID, clears supplementary groups and capabilities, and applies `no_new_privs` before the rehearsal command runs. Do not use that helper merely to avoid installing/configuring Bubblewrap correctly on a normal workstation.
+Linux hosts differ in how Bubblewrap may create namespaces. Some block the ordinary unprivileged namespace path. For those, `--sudo-namespace-helper` uses `sudo` only to construct the namespace, then `setpriv` drops to the invoking UID/GID, clears supplementary groups and capabilities, and applies `no_new_privs` before the rehearsal command runs. Other hosts confine Bubblewrap with a mandatory access control profile that removes capabilities from the sandboxed process (observed on Ubuntu 26.04 hosted runners, AppArmor profile `bwrap`). There the helper fails with `setpriv: setresuid failed: Operation not permitted`, while the ordinary path without the helper works; do not use the helper on such a host. The test workflows set `AHAM_TEST_BWRAP_SUDO_HELPER` to `auto`: tests use the ordinary path when the host allows it and the helper only when it does not. Do not use the helper merely to avoid installing/configuring Bubblewrap correctly on a normal workstation.
 
 ## 2. Prepare a rehearsal
 

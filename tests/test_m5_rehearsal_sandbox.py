@@ -9,6 +9,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from sandbox_helper import namespace_helper_args
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SETUP = ROOT / "scripts" / "setup_workspace.py"
@@ -39,8 +41,7 @@ class M5RehearsalSandboxTests(unittest.TestCase):
 
     def sandbox_prefix(self, workspace: Path, project: Path, env: dict[str, str]) -> list[str]:
         args = ["run", "--workspace", str(workspace), "--project", str(project)]
-        if env.get("AHAM_TEST_BWRAP_SUDO_HELPER") == "1":
-            args.append("--sudo-namespace-helper")
+        args.extend(namespace_helper_args(env))
         return args
 
     def test_os_enforced_sandbox_launcher_exists(self) -> None:
