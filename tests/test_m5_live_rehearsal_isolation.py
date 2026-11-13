@@ -9,6 +9,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from sandbox_helper import namespace_helper_args
+
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOL = ROOT / "scripts" / "live_runtime_rehearsal.py"
@@ -96,10 +98,7 @@ print(json.dumps({
             env = dict(os.environ)
             env["AHAM_TEST_HOST_MANIFEST"] = str(authoritative_manifest)
             env["AHAM_TEST_HOST_SENTINEL"] = str(sentinel_path)
-            if env.get("AHAM_TEST_BWRAP_SUDO_HELPER") == "1":
-                helper = ["--sudo-namespace-helper"]
-            else:
-                helper = []
+            helper = namespace_helper_args(env)
 
             result = self.run_tool(
                 "run",

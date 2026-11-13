@@ -46,7 +46,7 @@ class PublicationCIPolicyTests(unittest.TestCase):
         self.assertIn('default: false', text)
         self.assertIn('sudo apt-get install -y bubblewrap', text)
         self.assertLess(text.index('sudo apt-get install -y bubblewrap'), text.index('Run unit tests'))
-        self.assertIn('AHAM_TEST_BWRAP_SUDO_HELPER: "1"', text)
+        self.assertIn('AHAM_TEST_BWRAP_SUDO_HELPER: "auto"', text)
         self.assertRegex(text, r'if: .*inputs\.live_upstream')
 
     def test_dependency_updates_cover_actions_only_and_have_a_small_queue(self):
